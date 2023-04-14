@@ -31,8 +31,10 @@ class SNANAsim:
         df = Table.read(self.sim_path + self.sim_name + '_HEAD.FITS').to_pandas()
         df.index.name = 'ID'
         df['SNID'] = df['SNID'].map(lambda x: int(x))
-        return df
-    
+        pointsRA = df.RA + 360 * (df.RA < 0) 
+        geo = gpd.points_from_xy(np.radians(pointsRA), np.radians(df.DEC))
+        return gpd.GeoDataFrame(data=df, geometry=geo)
+        
 
 class SNANA_simlib:
     _head_typdic = {'LIBID': lambda x: int(x), 'RA': lambda x: float(x), 'DEC': lambda x: float(x), 
@@ -47,7 +49,7 @@ class SNANA_simlib:
     def __init__(self, name, path='./'):
         self.name = name
         self.path = path
-        self.data = self.read_simlib()
+        self.simlib_dic, self.data = self.read_simlib()
         
     def read_simlib(self):
         f = open(self.path + self.name, "r")
@@ -56,6 +58,7 @@ class SNANA_simlib:
         lib_idx = np.append(lib_idx, len(lines))
         libdic_list = []
         dflist = []
+        simlib_dic = {'header': lines[:lib_idx[0] - 1]}
 
         for i1, i2 in zip(lib_idx[:-1], lib_idx[1:]):
             sublines = lines[i1+1: i2]
@@ -87,11 +90,12 @@ class SNANA_simlib:
 
             dflist.append(df)
             libdic_list.append(libdic)
+            simlib_dic[libdic['LIBID']] = sublines
             
         df = pd.concat(dflist)
         df.attrs = {l['LIBID']:l for l in libdic_list}
         df.set_index('LIBID', inplace=True)
-        return df
+        return simlib_dic, df
     
     def get(self, key):
         return np.array([self.data.attrs[k][key] for k in self.data.attrs])

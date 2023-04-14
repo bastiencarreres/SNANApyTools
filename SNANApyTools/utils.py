@@ -5,6 +5,9 @@ from shapely import ops as shp_ops
 
 _SPHERE_LIMIT_ = shp_geo.LineString([[2 * np.pi, -np.pi/2],
                                      [2 * np.pi,  np.pi/2]])
+
+ 
+
 @njit
 def R_base(theta, phi, vec):
     """Give rotation to RA := theta, DEC := phi.
