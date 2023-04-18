@@ -1,4 +1,5 @@
 import pandas as pd
+import time
 import numpy as np
 import geopandas as gpd
 import re
@@ -48,7 +49,8 @@ class SNANA_simlib:
                          'NOBS': 'int', 
                          'PIXSIZE': 'float',
                          'REDSHIFT': 'float', 
-                         'PEAKMJD': 'float'}
+                         'PEAKMJD': 'float',
+                         }
 
     def __init__(self, name, path='./', keys=None, key_types=None, add_head={}):
         self._head_typdic = {**self._default_headtypes,
@@ -68,7 +70,7 @@ class SNANA_simlib:
         self.simlib_dic, self.data = self.read_simlib()
         
     def read_simlib(self):
-        f = open('./ERROR_EXAMPLE/' + 'LOWZ_JRK07.SIMLIB', "r")
+        f = open(self.path + self.name, "r")
         lines = np.array(f.readlines())
         lines = lines[~ut.vstartswith(lines, '#')]
 
@@ -150,3 +152,74 @@ class SNANA_simlib:
         
         self.fields = gpd.GeoSeries({ID: geo for ID, geo in zip(self.get('LIBID'), geometry)})
         self.footprint = self.fields.unary_union
+    
+    def plot_fields(self, ax, color='k', **kwargs):
+        if not isinstance(color, str):
+            color = iter(color)
+        
+        for f in self.fields:
+            if not isinstance(color, str):
+                c=next(color)
+            else:
+                c=color
+            
+            if f.geom_type =='Polygon':
+                geoms = [f]
+            else:
+                geoms = f.geoms
+                
+            for g in geoms:
+                ra, dec = g.boundary.coords.xy
+                ax.plot(np.array(ra) - np.pi, dec, color=c, **kwargs)
+    
+    def group_host(self, host, outpath='./', hostlib_name=None):
+        t0 = time.time()
+        if hostlib_name is None:
+            hostlib_name = self.name + '_HOST.HOSTLIB'
+        host = host.copy()
+        host.ra += 2 * np.pi * (host.ra < 0)
+
+        hostPos = gpd.GeoDataFrame(index=host.index, 
+                                   geometry=gpd.points_from_xy(host.ra, host.dec))
+        
+        hf_join = hostPos.sjoin(gpd.GeoDataFrame(geometry=self.fields), 
+                                how="inner", 
+                                predicate="intersects")
+        
+        # Can take few minutes for few 10 millions of hosts
+        grp_id = hf_join.index_right.sort_values().astype('str').groupby(level=0).agg('-'.join)
+
+        host_infield = host.loc[grp_id.index]
+        host_infield['groupid'] = host_infield.index.map(grp_id.to_dict())
+
+        # Take the max libid to avoid grp with same id than existing libid
+        idxmax = self.data.index.max()
+
+        # Map between libid and possible grpid
+        libgrp_map = {i:[] for i in self.data.index.unique()}
+        n0 = int(np.log10(idxmax))
+        for gid in grp_id.unique():
+            idlist = gid.split('-')
+            for i in idlist:
+                libgrp_map[int(i)].append(gid.replace('-', '0' * n0))
+
+        # Create and write the new simlib
+        new_simlib = ''.join(self.simlib_dic['header']) + '\n\n'
+        for i in self.data.index.unique():
+            new_simlib += '#--------------------------------------------\n'
+            new_simlib += ''.join(np.insert(self.simlib_dic[i], 1,
+                                            'HOSTLIB_GROUPID: {}'.format(','.join(np.sort(libgrp_map[i])) + '\n')))
+        newf = open(self.path + 'GRPID_' +  self.name, 'w')
+        newf.write(new_simlib)
+        newf.close()
+
+        # Change the grpid to number after write the simlib
+        host_infield['groupid'] = host_infield.groupid.map(lambda x: int(x.replace('-', '0' * n0)))
+        ut.create_hostlib(host_infield, self.path + hostlib_name)
+
+        dtime = time.time() - t0
+
+        print(f"Write:\n    - {self.path + 'GRPID_' +  self.name}\n    - {self.path + hostlib_name}")
+        print(f'Finished in {dtime // 60:.0f}min {dtime % 60:.0f}s')
+        
+        

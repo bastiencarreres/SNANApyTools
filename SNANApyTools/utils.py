@@ -126,3 +126,29 @@ def typer(val, dtype):
 vstartswith = np.vectorize(lambda line, motif: line.startswith(motif), excluded=[1])
 
 vcontains = np.vectorize(lambda line, motif: motif in line, excluded=[1])
+
+
+@np.vectorize
+def GalLine(index, ra, dec, zobs, zcos, vpec, grpid):
+    line = "GAL: {} {} {} {} {} {} {} {} {} {}"
+    return line.format(index, ra, dec, zcos, zobs, vpec, grpid, 0.5, 0.5, 0.0)
+
+
+def create_hostlib(df, filename):
+    print('Writting {} hosts in HOSTLIB file'.format(len(df)))
+    Header = ("DOCUMENTATION:\n"
+              "PURPOSE: TEST\n"
+              "DOCUMENATION_END:\n"
+              "# ========================\n"
+              f"# Z_MIN={df.zcos.min()} Z_MAX={df.zcos.max()}\n\n"
+              "VPECERR: 0\n\n"
+              "VARNAMES: GALID RA_GAL DEC_GAL ZTRUE_CMB ZOBS_HOST VPEC GROUPID a0_Sersic b0_Sersic a_rot\n\n"
+              "n0_Sersic: 0.5")
+    
+    lines = GalLine(df.index.values, np.degrees(df.ra.values), 
+                    np.degrees(df.dec.values), df.zobs.values, 
+                    df.zcos.values, df.vpec_true.values, df.groupid.values)
+    file = Header + '\n\n' + "\n".join(lines)
+    f = open(filename, "w")
+    f.write(file)
+    f.close()
