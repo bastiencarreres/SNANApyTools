@@ -112,3 +112,17 @@ def _compute_polygon(corners):
             polygon[0] = shp_geo.Polygon(np.array([x0, y0]).T)
         polygon =  shp_geo.MultiPolygon(polygon)
     return polygon
+
+
+def typer(val, dtype):
+    if dtype == 'int':
+        return int(val)
+    if dtype == 'float':
+        return float(val)
+    if dtype == 'str':
+        return str(val)
+
+
+vstartswith = np.vectorize(lambda line, motif: line.startswith(motif), excluded=[1])
+
+vcontains = np.vectorize(lambda line, motif: motif in line, excluded=[1])

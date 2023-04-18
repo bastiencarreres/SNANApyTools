@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import geopandas as gpd
+import re
 from numba import njit, guvectorize
 from shapely import geometry as shp_geo
 from shapely import ops as shp_ops
@@ -37,60 +38,83 @@ class SNANAsim:
         
 
 class SNANA_simlib:
-    _head_typdic = {'LIBID': lambda x: int(x), 'RA': lambda x: float(x), 'DEC': lambda x: float(x), 
-                    'MWEBV': lambda x: float(x), 'NOBS': lambda x: int(x), 'PIXSIZE': lambda x: float(x),
-                    'REDSHIFT': lambda x: float(x), 'PEAKMJD': lambda x: float(x)}
+    _default_keys = ['MJD','IDEXPT','FLT','GAIN','NOISE','SKYSIG','PSF1','PSF2','RATIO','ZPTAVG','ZPTSIG','MAG']
+    _default_typ = ['float','int','str','float','float','float','float','float','float','float','float','float']
     
-    _columns_typdic  = {'MJD': lambda x: float(x), 'IDEXPT': lambda x: float(x), 'BAND': lambda x: str(x), 
-                        'GAIN': lambda x: float(x), 'RDNOISE': lambda x: float(x), 'SKYSIG': lambda x: float(x),
-                        'PSF1': lambda x: float(x), 'PSF2': lambda x: float(x), 'PSFRAT': lambda x: float(x), 
-                         'ZP': lambda x: float(x), 'ZPERR': lambda x: float(x), 'MAG': lambda x: float(x)}
-    
-    def __init__(self, name, path='./'):
+    _default_headtypes = {'LIBID': 'int', 
+                         'RA': 'float', 
+                         'DEC': 'float', 
+                         'MWEBV': 'float', 
+                         'NOBS': 'int', 
+                         'PIXSIZE': 'float',
+                         'REDSHIFT': 'float', 
+                         'PEAKMJD': 'float'}
+
+    def __init__(self, name, path='./', keys=None, key_types=None, add_head={}):
+        self._head_typdic = {**self._default_headtypes,
+                             **add_head}
+        if keys is None:
+            self.keys = self._default_keys
+        else:
+            self.keys = keys.copy()
+        
+        if key_types is None:
+            self.key_types = self._default_typ
+        else:
+            self.key_types = key_types.copy()
+        
         self.name = name
         self.path = path
         self.simlib_dic, self.data = self.read_simlib()
         
     def read_simlib(self):
-        f = open(self.path + self.name, "r")
+        f = open('./ERROR_EXAMPLE/' + 'LOWZ_JRK07.SIMLIB', "r")
         lines = np.array(f.readlines())
-        lib_idx = np.where(lines == '#--------------------------------------------\n')[0]
+        lines = lines[~ut.vstartswith(lines, '#')]
+
+        lib_idx = np.arange(len(lines))[ut.vstartswith(lines, 'LIBID')]
         lib_idx = np.append(lib_idx, len(lines))
+
+        libdic_list = []
+        dflist = []
+        simlib_dic = {'header': lines[:lib_idx[0]]}
+
         libdic_list = []
         dflist = []
         simlib_dic = {'header': lines[:lib_idx[0] - 1]}
 
         for i1, i2 in zip(lib_idx[:-1], lib_idx[1:]):
-            sublines = lines[i1+1: i2]
-
             libdic = {}
+
+            sublines = lines[i1: i2]
+            sublines_format = sublines[sublines != '\n']
+            end_idx = np.arange(len(sublines_format))[ut.vcontains(sublines_format, 'END_LIBID')][0]
+            sublines_format = sublines_format[:end_idx]
+            table_lines = ut.vstartswith(sublines_format, 'S:')
+            
             key_val = []
-            for i in range(len(sublines)):
-                l = sublines[i]
-                if l=='\n':
-                    idx_end_header =  i
-                    break
+            for l in sublines_format[~table_lines]:
+                l = re.sub("[\(\[].*?[\)\]]", "", l)
                 splitlist = l.replace('\n', '').split('#')[0].split(':')
                 key_val.extend(np.concatenate([[e for e in s.split(' ') if e!=''] for s in splitlist ]))
 
             for i in range(0, len(key_val), 2):
-                libdic[key_val[i]] = self._head_typdic[key_val[i]](key_val[i + 1])
+                libdic[key_val[i]] = ut.typer(key_val[i + 1], self._head_typdic[key_val[i]])
 
+            simlib_dic[libdic['LIBID']] = sublines
 
-            columns = [e for e in sublines[idx_end_header + 1].replace('#', '').replace('\n', '').split(' ') if e!='']
-            data = {k: [] for k in columns}
+            data = {k: [] for k in self.keys}
 
-
-            for s in sublines[idx_end_header + 2:idx_end_header + 2 + libdic['NOBS']]:
+            for s in sublines_format[table_lines]:
                 vals = [e for e in s.replace('S:', '').replace('\n', '').split(' ') if e!='']
-                for k, v in zip(columns, vals):
-                    data[k].append(self._columns_typdic[k](v))
+                for k, v, ktyp in zip(self.keys, vals, self.key_types):
+                    data[k].append(ut.typer(v, ktyp))
             df = pd.DataFrame(data)
             df['LIBID'] = libdic['LIBID']
 
             dflist.append(df)
             libdic_list.append(libdic)
-            simlib_dic[libdic['LIBID']] = sublines
+
             
         df = pd.concat(dflist)
         df.attrs = {l['LIBID']:l for l in libdic_list}
@@ -100,8 +124,10 @@ class SNANA_simlib:
     def get(self, key):
         return np.array([self.data.attrs[k][key] for k in self.data.attrs])
     
-    def compute_geo(self, field_size_rad):
-        N = len(self.get('RA'))
+    def compute_geo(self, field_size_rad, coord_keys={'ra': 'RA', 'dec': 'DEC'}):
+        ra = self.get(coord_keys['ra'])
+        dec = self.get(coord_keys['dec'])
+        N = len(ra)
         sub_fields_corners = {0: np.array([[-field_size_rad[0] / 2,  field_size_rad[1] / 2],
                                            [ field_size_rad[0] / 2,  field_size_rad[1] / 2],
                                            [ field_size_rad[0] / 2, -field_size_rad[1] / 2],
@@ -110,8 +136,8 @@ class SNANA_simlib:
         field_corners = np.broadcast_to(sub_fields_corners[0], (N, 4, 2))
 
         corner = {}
-        fieldRA = np.radians(self.get('RA'))
-        fieldDec = np.radians(self.get('DEC'))
+        fieldRA = np.radians(ra)
+        fieldDec = np.radians(dec)
 
         for i in range(4):
             corner[i] = ut.new_coord_on_fields(field_corners[:, i].T, 
