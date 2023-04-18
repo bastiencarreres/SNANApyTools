@@ -172,7 +172,7 @@ class SNANA_simlib:
                 ra, dec = g.boundary.coords.xy
                 ax.plot(np.array(ra) - np.pi, dec, color=c, **kwargs)
     
-    def group_host(self, host, hostlib_name=None):
+    def group_host(self, host, hostlib_name=None, host_pqsave=False):
         """Create a SIMLIB and HOSTLIB from host dataframe.
 
         Parameters
@@ -180,7 +180,7 @@ class SNANA_simlib:
         host : pandas.Dataframe
             A datframe that contains informations about host
         hostlib_name : str, optional
-            Name of the HOSTLIB file, by default SIMLIB name + _HOST.HOSTLIB
+            Name of the HOSTLIB file, by default SIMLIB name + _HOST
 
         Notes
         -----
@@ -188,7 +188,7 @@ class SNANA_simlib:
         """        
         t0 = time.time()
         if hostlib_name is None:
-            hostlib_name = self.name + '_HOST.HOSTLIB'
+            hostlib_name = self.name + '_HOST' 
         host = host.copy()
         host.ra += 2 * np.pi * (host.ra < 0)
 
@@ -228,11 +228,13 @@ class SNANA_simlib:
 
         # Change the grpid to number after write the simlib
         host_infield['groupid'] = host_infield.groupid.map(lambda x: int(x.replace('-', '0' * n0)))
-        ut.create_hostlib(host_infield, self.path + hostlib_name)
+        ut.create_hostlib(host_infield, self.path + hostlib_name + '.HOSTLIB')
 
+        if host_pqsave:
+            host_infield.to_parquet(self.path + hostlib_name + '.parquet')
         dtime = time.time() - t0
 
-        print(f"Write:\n    - {self.path + 'GRPID_' +  self.name}\n    - {self.path + hostlib_name}")
+        print(f"Write:\n    - {self.path + 'GRPID_' +  self.name}\n    - {self.path + hostlib_name + '.HOSTLIB'}")
         print(f'Finished in {dtime // 60:.0f}min {dtime % 60:.0f}s')
         
         
