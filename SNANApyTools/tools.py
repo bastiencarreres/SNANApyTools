@@ -172,7 +172,20 @@ class SNANA_simlib:
                 ra, dec = g.boundary.coords.xy
                 ax.plot(np.array(ra) - np.pi, dec, color=c, **kwargs)
     
-    def group_host(self, host, outpath='./', hostlib_name=None):
+    def group_host(self, host, hostlib_name=None):
+        """Create a SIMLIB and HOSTLIB from host dataframe.
+
+        Parameters
+        ----------
+        host : pandas.Dataframe
+            A datframe that contains informations about host
+        hostlib_name : str, optional
+            Name of the HOSTLIB file, by default SIMLIB name + _HOST.HOSTLIB
+
+        Notes
+        -----
+        Can take few minutes to run.
+        """        
         t0 = time.time()
         if hostlib_name is None:
             hostlib_name = self.name + '_HOST.HOSTLIB'
