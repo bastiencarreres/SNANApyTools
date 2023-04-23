@@ -211,13 +211,22 @@ class SNANA_simlib:
         # Take the max libid to avoid grp with same id than existing libid
         idxmax = self.data.index.max()
 
-        # Map between libid and possible grpid
+        # Create strid_grpid map between '-' spearated string to integers group id
+        # Also create a map between libid and possible groupid to be written in SIMLIB
+        strid_grpid = {}
         libgrp_map = {i:[] for i in self.data.index.unique()}
-        n0 = int(np.log10(idxmax))
+        compt = idxmax * 10
         for gid in grp_id.unique():
+            if '-' in gid:
+                strid_grpid[gid] = compt
+                compt += 1
+            else:
+                strid_grpid[gid] = int(gid)
+            
             idlist = gid.split('-')
             for i in idlist:
-                libgrp_map[int(i)].append(gid.replace('-', '0' * n0))
+                libgrp_map[int(i)].append(str(strid_grpid[gid]))
+
 
         # Create and write the new simlib
         new_simlib = ''.join(self.simlib_dic['header']) + '\n\n'
@@ -230,7 +239,7 @@ class SNANA_simlib:
         newf.close()
 
         # Change the grpid to number after write the simlib
-        host_infield['groupid'] = host_infield.groupid.map(lambda x: int(x.replace('-', '0' * n0)))
+        host_infield['groupid'] = host_infield.groupid.map(strid_grpid)
         ut.create_hostlib(host_infield, self.path + hostlib_name + '.HOSTLIB')
 
         if host_pqsave:
