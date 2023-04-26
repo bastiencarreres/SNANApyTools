@@ -232,8 +232,8 @@ class SNANA_simlib:
         new_simlib = ''.join(self.simlib_dic['header']) + '\n\n'
         for i in self.data.index.unique():
             new_simlib += '#--------------------------------------------\n'
-            new_simlib += ''.join(np.insert(self.simlib_dic[i], 1,
-                                            'HOSTLIB_GROUPID: {}'.format(','.join(np.sort(libgrp_map[i])) + '\n')))
+            new_simlib += self.simlib_dic[i][0] + 'HOSTLIB_GROUPID: {}'.format(','.join(libgrp_map[i]) + '\n')
+            new_simlib += ''.join(self.simlib_dic[i][1:])
         newf = open(self.path + 'GRPID_' +  self.name, 'w')
         newf.write(new_simlib)
         newf.close()
