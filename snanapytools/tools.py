@@ -43,15 +43,16 @@ class SNANA_simlib:
     _default_keys = ['MJD','IDEXPT','FLT','GAIN','NOISE','SKYSIG','PSF1','PSF2','RATIO','ZPTAVG','ZPTSIG','MAG']
     _default_typ = ['float','int','str','float','float','float','float','float','float','float','float','float']
     
-    _default_headtypes = {'LIBID': 'int', 
-                         'RA': 'float', 
-                         'DEC': 'float', 
-                         'MWEBV': 'float', 
-                         'NOBS': 'int', 
-                         'PIXSIZE': 'float',
-                         'REDSHIFT': 'float', 
-                         'PEAKMJD': 'float',
-                         }
+    _default_headtypes = {
+                        'LIBID': 'int', 
+                        'RA': 'float', 
+                        'DEC': 'float', 
+                        'MWEBV': 'float', 
+                        'NOBS': 'int', 
+                        'PIXSIZE': 'float',
+                        'REDSHIFT': 'float', 
+                        'PEAKMJD': 'float',
+                        }
 
     def __init__(self, name, path='./', keys=None, key_types=None, add_head={}):
         self._head_typdic = {**self._default_headtypes,
@@ -127,14 +128,16 @@ class SNANA_simlib:
     def get(self, key):
         return np.array([self.data.attrs[k][key] for k in self.data.attrs])
     
-    def compute_geo(self, field_size_rad, coord_keys={'ra': 'RA', 'dec': 'DEC'}):
+    def compute_geo(self, field_size, rad=False, coord_keys={'ra': 'RA', 'dec': 'DEC'}):
+        if not rad:
+            field_size = np.radians(field_size)
         ra = self.get(coord_keys['ra'])
         dec = self.get(coord_keys['dec'])
         N = len(ra)
-        sub_fields_corners = {0: np.array([[-field_size_rad[0] / 2,  field_size_rad[1] / 2],
-                                           [ field_size_rad[0] / 2,  field_size_rad[1] / 2],
-                                           [ field_size_rad[0] / 2, -field_size_rad[1] / 2],
-                                           [-field_size_rad[0] / 2, -field_size_rad[1] / 2]])}
+        sub_fields_corners = {0: np.array([[-field_size[0] / 2,  field_size[1] / 2],
+                                           [ field_size[0] / 2,  field_size[1] / 2],
+                                           [ field_size[0] / 2, -field_size[1] / 2],
+                                           [-field_size[0] / 2, -field_size[1] / 2]])}
         
         field_corners = np.broadcast_to(sub_fields_corners[0], (N, 4, 2))
 
