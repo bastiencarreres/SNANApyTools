@@ -129,12 +129,26 @@ vcontains = np.vectorize(lambda line, motif: motif in line, excluded=[1])
 
 
 @np.vectorize
-def GalLine(index, ra, dec, zcos, vpec, grpid):
-    line = "GAL: {} {} {} {} {} {} {} {} {}"
-    return line.format(index, ra, dec, zcos, vpec, grpid, 0.5, 0.5, 0.0)
+def GalLine(*args):
+    line = "GAL:" + " {}" * len(args)
+    return line.format(*args)
 
 
-def create_hostlib(df, filename):
+def create_hostlib(df, filename, key_mapper={}, n0_Sersic=0.5):
+    _key_mapper_default = {'GALID': 'index', 'RA_GAL': 'ra', 'DEC_GAL': 'dec', 
+                           'ZTRUE_CMB':'zcos', 'VPEC':'vpec_true', 'GROUPID':'groupid',
+                           'a0_Sersic': 0.5, 'b0_Sersic': 0.5, 'a_rot': 0.0}
+    
+    key_mapper = {**_key_mapper_default, **key_mapper}
+    VARNAMES = "VARNAMES:"
+    VALUES = []
+    for k, v in key_mapper.items():
+        VARNAMES += f" {k}"
+        if isinstance(v, (int, float)):
+            VALUES.append(np.ones(len(df)) * v)
+        else:
+            VALUES.append(getattr(df, v).values)       
+    
     print('Writting {} hosts in HOSTLIB file'.format(len(df)))
     Header = ("DOCUMENTATION:\n"
               "PURPOSE: TEST\n"
@@ -142,8 +156,8 @@ def create_hostlib(df, filename):
               "# ========================\n"
               f"# Z_MIN={df.zcos.min()} Z_MAX={df.zcos.max()}\n\n"
               "VPECERR: 0\n\n"
-              "VARNAMES: GALID RA_GAL DEC_GAL ZTRUE_CMB VPEC GROUPID a0_Sersic b0_Sersic a_rot\n\n"
-              "n0_Sersic: 0.5")
+              f"{VARNAMES}\n\n"
+              f"n0_Sersic: {n0_Sersic}")
     
     lines = GalLine(df.index.values, np.degrees(df.ra.values), 
                     np.degrees(df.dec.values),df.zcos.values, 
