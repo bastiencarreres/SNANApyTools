@@ -140,6 +140,7 @@ def create_hostlib(df, filename, key_mapper={}, n0_Sersic=0.5):
                            'a0_Sersic': 0.5, 'b0_Sersic': 0.5, 'a_rot': 0.0}
     
     key_mapper = {**_key_mapper_default, **key_mapper}
+
     VARNAMES = "VARNAMES:"
     VALUES = []
     for k, v in key_mapper.items():
@@ -159,9 +160,7 @@ def create_hostlib(df, filename, key_mapper={}, n0_Sersic=0.5):
               f"{VARNAMES}\n\n"
               f"n0_Sersic: {n0_Sersic}")
     
-    lines = GalLine(df.index.values, np.degrees(df.ra.values), 
-                    np.degrees(df.dec.values),df.zcos.values, 
-                    df.vpec_true.values, df.groupid.values)
+    lines = GalLine(*VALUES)
     file = Header + '\n\n' + "\n".join(lines)
     f = open(filename, "w")
     f.write(file)

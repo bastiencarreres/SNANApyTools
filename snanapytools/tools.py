@@ -176,7 +176,8 @@ class SNANA_simlib:
                 ra, dec = g.boundary.coords.xy
                 ax.plot(np.array(ra) - np.pi, dec, color=c, **kwargs)
     
-    def group_host(self, host, hostlib_name=None, host_pqsave=False, return_hostdf=False):
+    def group_host(self, host, hostlib_name=None, host_pqsave=False, 
+                   return_hostdf=False, key_mapper={}):
         """Create a SIMLIB and HOSTLIB from host dataframe.
 
         Parameters
@@ -243,7 +244,7 @@ class SNANA_simlib:
 
         # Change the grpid to number after write the simlib
         host_infield['groupid'] = host_infield.groupid.map(strid_grpid)
-        ut.create_hostlib(host_infield, self.path + hostlib_name + '.HOSTLIB')
+        ut.create_hostlib(host_infield, self.path + hostlib_name + '.HOSTLIB', key_mapper=key_mapper)
 
         if host_pqsave:
             host_infield.to_parquet(self.path + hostlib_name + '.parquet')
