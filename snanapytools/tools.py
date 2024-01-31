@@ -4,6 +4,7 @@ import numpy as np
 import geopandas as gpd
 import re
 import os
+from multiprocessing import Pool
 from numba import njit, guvectorize
 from shapely import geometry as shp_geo
 from shapely import ops as shp_ops
@@ -54,7 +55,7 @@ class SNANA_simlib:
                         'PEAKMJD': 'float',
                         }
 
-    def __init__(self, name, path='./', keys=None, key_types=None, add_head={}):
+    def __init__(self, name, path='./', keys=None, key_types=None, add_head={}, nworker=1):
         self._head_typdic = {**self._default_headtypes,
                              **add_head}
         if keys is None:
@@ -69,9 +70,40 @@ class SNANA_simlib:
         
         self.name = name
         self.path = path
-        self.simlib_dic, self.data = self.read_simlib()
+        self.simlib_dic, self.data = self.read_simlib(nworker=nworker)
+    
+    def read_libentry(self, lines):
+        libdic = {}
         
-    def read_simlib(self):
+        lines_format = lines[lines != '\n']
+        end_idx = np.arange(len(lines_format))[ut.vcontains(lines_format, 'END_LIBID')][0]
+        lines_format = lines_format[:end_idx]
+        table_lines = ut.vstartswith(lines_format, 'S:')
+        
+        
+        key_val = []
+        
+        for l in lines_format[~table_lines]:
+            l = re.sub("[\(\[].*?[\)\]]", "", l)
+            splitlist = l.replace('\n', '').split('#')[0].split(':')
+            key_val.extend(np.concatenate([[e for e in s.split(' ') if e!=''] for s in splitlist ]))
+
+        for i in range(0, len(key_val), 2):
+            libdic[key_val[i]] = ut.typer(key_val[i + 1], self._head_typdic[key_val[i]])
+
+        data = {k: [] for k in self.keys}
+
+        for s in lines_format[table_lines]:
+            vals = [e for e in s.replace('S:', '').replace('\n', '').split(' ') if e!='']
+            for k, v, ktyp in zip(self.keys, vals, self.key_types):
+                data[k].append(ut.typer(v, ktyp))
+    
+        df = pd.DataFrame(data)
+        df['LIBID'] = libdic['LIBID']
+        df.attrs = {'libdic': libdic, 'lines': lines}
+        return df
+        
+    def read_simlib(self, nworker=1):
         f = open(self.path + self.name, "r")
         lines = np.array(f.readlines())
         lines = lines[~ut.vstartswith(lines, '#')]
@@ -82,46 +114,16 @@ class SNANA_simlib:
         libdic_list = []
         dflist = []
         simlib_dic = {'header': lines[:lib_idx[0]]}
-
-        libdic_list = []
-        dflist = []
-        simlib_dic = {'header': lines[:lib_idx[0] - 1]}
-
-        for i1, i2 in zip(lib_idx[:-1], lib_idx[1:]):
-            libdic = {}
-
-            sublines = lines[i1: i2]
-            sublines_format = sublines[sublines != '\n']
-            end_idx = np.arange(len(sublines_format))[ut.vcontains(sublines_format, 'END_LIBID')][0]
-            sublines_format = sublines_format[:end_idx]
-            table_lines = ut.vstartswith(sublines_format, 'S:')
-            
-            key_val = []
-            for l in sublines_format[~table_lines]:
-                l = re.sub("[\(\[].*?[\)\]]", "", l)
-                splitlist = l.replace('\n', '').split('#')[0].split(':')
-                key_val.extend(np.concatenate([[e for e in s.split(' ') if e!=''] for s in splitlist ]))
-
-            for i in range(0, len(key_val), 2):
-                libdic[key_val[i]] = ut.typer(key_val[i + 1], self._head_typdic[key_val[i]])
-
-            simlib_dic[libdic['LIBID']] = sublines
-
-            data = {k: [] for k in self.keys}
-
-            for s in sublines_format[table_lines]:
-                vals = [e for e in s.replace('S:', '').replace('\n', '').split(' ') if e!='']
-                for k, v, ktyp in zip(self.keys, vals, self.key_types):
-                    data[k].append(ut.typer(v, ktyp))
-            df = pd.DataFrame(data)
-            df['LIBID'] = libdic['LIBID']
-
-            dflist.append(df)
-            libdic_list.append(libdic)
-
-            
+        
+        batchs = [lines[i1:i2] for i1, i2 in zip(lib_idx[:-1], lib_idx[1:])]
+        
+        with Pool(nworker) as p:
+            dflist = p.map(self.read_libentry, batchs)
+        
         df = pd.concat(dflist)
-        df.attrs = {l['LIBID']:l for l in libdic_list}
+        df.attrs = {l.attrs['libdic']['LIBID']: l.attrs['libdic'] for l in dflist}
+        lines_dic = {l.attrs['libdic']['LIBID']: l.attrs['lines'] for l in dflist}
+        simlib_dic ={**simlib_dic, **lines_dic}
         df.set_index('LIBID', inplace=True)
         return simlib_dic, df
     
