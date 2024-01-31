@@ -179,7 +179,7 @@ class SNANA_simlib:
                 ax.plot(np.array(ra) - np.pi, dec, color=c, **kwargs)
     
     def group_host(self, host, hostlib_name=None, host_pqsave=False, 
-                   return_hostdf=False, key_mapper={}):
+                   return_hostdf=False, key_mapper={}, host_deg=False):
         """Create a SIMLIB and HOSTLIB from host dataframe.
 
         Parameters
@@ -199,6 +199,11 @@ class SNANA_simlib:
         
         # Make a copy to not modify input table
         host = host.copy()
+        
+        if host_deg:
+            host['ra'] = np.radians(host['ra'])
+            host['dec'] = np.radians(host['dec'])
+
         host.ra += 2 * np.pi * (host.ra < 0)
 
         hostPos = gpd.GeoDataFrame(index=host.index, 
@@ -207,6 +212,10 @@ class SNANA_simlib:
         hf_join = hostPos.sjoin(gpd.GeoDataFrame(geometry=self.fields), 
                                 how="inner", 
                                 predicate="intersects")
+        
+        host['ra'] = np.degrees(host['ra'])
+        host['dec'] = np.degrees(host['dec'])
+
         
         # Can take few minutes for few 10 millions of hosts
         grp_id = hf_join.index_right.sort_values().astype('str').groupby(level=0).agg('-'.join)
@@ -240,7 +249,8 @@ class SNANA_simlib:
             new_simlib += '#--------------------------------------------\n'
             new_simlib += self.simlib_dic[i][0] + 'HOSTLIB_GROUPID: {}'.format(','.join(libgrp_map[i]) + '\n')
             new_simlib += ''.join(self.simlib_dic[i][1:])
-        newf = open(self.path + 'GRPID_' +  self.name, 'w')
+        name, ext = os.path.splitext(self.name)
+        newf = open(self.path +  name + '_GRP' + ext, 'w')
         newf.write(new_simlib)
         newf.close()
 
@@ -260,4 +270,47 @@ class SNANA_simlib:
         
         if return_hostdf:
             return host_infield
-        
+
+def read_wgtmap(file):
+    f = open(file, "r")
+    lines = np.array(f.readlines())
+    lines = lines[~ut.vstartswith(lines, '#')]
+
+    wgt_keys = lines[ut.vstartswith(lines, 'VARNAMES_WGTMAP')][0].replace('\n', '').strip().split(' ')[1:]
+    wgt_idx = np.arange(len(lines))[ut.vstartswith(lines, 'WGT')]
+
+    wgt_map = {k: [] for k in wgt_keys}
+    for l in lines[wgt_idx]:
+        l = l.replace('\n', '').split(' ')[1:]
+        for k, e in zip(wgt_keys, l):
+            wgt_map[k].append(float(e))
+
+    return pd.DataFrame(wgt_map)
+
+
+class SNANA_PDF:
+    
+    def __init__(pdf_dic):
+        self.dic = pdf_dic
+        self.keys = list(pdf_dic.keys())
+    
+    @classmethod
+    def initfromFile(cls, file):
+        return cls(cls.read_pdffile(file))
+    
+    @staticmethod
+    def read_pdffile(file):
+        f = open(file, 'r')
+        lines = np.array(f.readlines())
+        lines = lines[~ut.vstartswith(lines, '#')]
+        varline = lines[ia].replace('VARNAMES:', '').replace('\n', '').strip().split(' ')
+        dic = {k: [] for k in varline}
+        for l in lines[ia+1:ib]:
+            if l != '\n':
+                vals = l.replace('PDF:', '').replace('\n', '').strip().split(' ')
+                for k, v in zip(dic, vals):
+                    dic[k].append(float(v))
+        pdf_dic[varline[0]] = pd.DataFrame(dic) 
+        return pdf_dic
+    
+    
