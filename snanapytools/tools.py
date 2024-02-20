@@ -110,13 +110,13 @@ class SNANA_simlib:
 
         lib_idx = np.arange(len(lines))[ut.vstartswith(lines, 'LIBID')]
         lib_idx = np.append(lib_idx, len(lines))
-
+        
         libdic_list = []
         dflist = []
         simlib_dic = {'header': lines[:lib_idx[0]]}
         
         batchs = [lines[i1:i2] for i1, i2 in zip(lib_idx[:-1], lib_idx[1:])]
-        
+
         with Pool(nworker) as p:
             dflist = p.map(self.read_libentry, batchs)
         
@@ -289,7 +289,6 @@ def read_wgtmap(file):
 
 
 class SNANA_PDF:
-    
     def __init__(pdf_dic):
         self.dic = pdf_dic
         self.keys = list(pdf_dic.keys())

@@ -129,15 +129,19 @@ vcontains = np.vectorize(lambda line, motif: motif in line, excluded=[1])
 
 
 @np.vectorize
-def GalLine(*args):
-    line = "GAL:" + " {}" * len(args)
+def GalLine(*args, first=True):
+    if first:
+        line = "GAL:"
+    else:
+        line = ""
+    line = line + " {}" * len(args)
     return line.format(*args)
 
 
-def create_hostlib(df, filename, key_mapper={}, n0_Sersic=0.5):
+def create_hostlib(df, filename, key_mapper={}):
     _key_mapper_default = {'GALID': 'index', 'RA_GAL': 'ra', 'DEC_GAL': 'dec', 
                            'ZTRUE_CMB':'zcos', 'VPEC':'vpec_true', 'GROUPID':'groupid',
-                           'a0_Sersic': 0.5, 'b0_Sersic': 0.5, 'a_rot': 0.0}
+                           'a0_Sersic': 0.5, 'b0_Sersic': 0.5, 'a_rot': 0.0, 'n0_Sersic': 0.5}
     
     key_mapper = {**_key_mapper_default, **key_mapper}
 
@@ -157,10 +161,14 @@ def create_hostlib(df, filename, key_mapper={}, n0_Sersic=0.5):
               "# ========================\n"
               f"# Z_MIN={df.zcos.min()} Z_MAX={df.zcos.max()}\n\n"
               "VPECERR: 0\n\n"
-              f"{VARNAMES}\n\n"
-              f"n0_Sersic: {n0_Sersic}")
+              f"{VARNAMES}\n\n")
     
-    lines = GalLine(*VALUES)
+    VAL_to_write = VALUES
+    lines = [''] * len(VALUES[0])
+    nloop = len(VAL_to_write) // 30 + 1
+    for i in range(nloop):
+        lines = np.char.add(lines, GalLine(*VALUES[i * 30:(i + 1) * 30]))
+
     file = Header + '\n\n' + "\n".join(lines)
     f = open(filename, "w")
     f.write(file)
