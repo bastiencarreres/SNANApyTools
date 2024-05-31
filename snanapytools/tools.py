@@ -271,6 +271,21 @@ class SNANA_simlib:
         if return_hostdf:
             return host_infield
 
+def write_wgtmap(path, header_dic, var_dic):
+    file = open(path, 'w')
+    DocStr = "DOCUMENTATION:\n"
+    for k in header_dic:
+        DocStr += f"    {k.upper()}: {header_dic[k]}\n"
+    DocStr += "DOCUMENTATION_END: \n"
+    file.write(DocStr)
+    file.write("VARNAMES_WGTMAP: " + " ".join([k.upper() for k in var_dic]) + "\n")
+    
+    lines = '\n'.join(ut.GalLine(*[var_dic['LOGMASS'], var_dic['WGT'], var_dic['SNMAGSHIFT']], first='WGT: '))
+    file.write(lines)
+    file.close()
+    
+        
+    
 def read_wgtmap(file):
     f = open(file, "r")
     lines = np.array(f.readlines())
@@ -291,6 +306,14 @@ def read_wgtmap(file):
 
     return pd.DataFrame(wgt_map)
 
+def read_hostlib(file):
+    f = open(file, 'r')
+    i = 0
+    for l in f:
+        if l.startswith('VARNAMES'):
+            break
+        i+=1
+    return pd.read_table(file, skiprows=i, delimiter=' ')
 
 class SNANA_PDF:
     def __init__(pdf_dic):

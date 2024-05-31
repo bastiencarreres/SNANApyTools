@@ -124,17 +124,11 @@ def typer(val, dtype):
 
 
 vstartswith = np.vectorize(lambda line, motif: line.startswith(motif), excluded=[1])
-
 vcontains = np.vectorize(lambda line, motif: motif in line, excluded=[1])
 
-
 @np.vectorize
-def GalLine(*args, first=True):
-    if first:
-        line = "GAL:"
-    else:
-        line = ""
-    line = line + " {}" * len(args)
+def GalLine(*args, first="GAL: "):
+    line = first + " {}" * len(args)
     return line.format(*args)
 
 
