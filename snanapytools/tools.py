@@ -374,6 +374,7 @@ def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], 
     
     print(f'$PIPPIN_OUTPUT = {__PIPPIN_OUTPUT__}\n')
     
+    print(f'READING  {_PIPPIN_OUTPUT__ + '/' + pip_dir}\n')
     PIP_DIR = Path(__PIPPIN_OUTPUT__ + '/' + pip_dir)
     SIM_DIR = PIP_DIR / '1_SIM'
     FIT_DIR = PIP_DIR / '2_LCFIT'
@@ -382,7 +383,7 @@ def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], 
     SIM_OUT_DIR = OUT_DIR / '1_SIM'
     FIT_OUT_DIR = OUT_DIR / '2_LCFIT'
 
-    print(f'WRITE IN {OUT_DIR.stem}')
+    print(f'WRITE IN {OUT_DIR.stem}\n')
     
     for sd, fd in zip(sorted(SIM_DIR.glob('*')), sorted(FIT_DIR.glob('*'))):
         if sd.name in exclude:
@@ -417,6 +418,7 @@ def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], 
         shutil.copy2(list(fd.glob('FIT_PIP*.LOG'))[0], VERSION_FIT_OUT_DIR)
         shutil.copy2(list(fd.glob('output/ALL.DONE'))[0], VERSION_FIT_OUT_DIR / 'output/ALL.DONE')
         shutil.copy2(list(fd.glob('output/MERGE.LOG'))[0], VERSION_FIT_OUT_DIR / 'output/MERGE.LOG')
+        shutil.copy2(list(fd.glob('output/SUBMIT.INFO'))[0], VERSION_FIT_OUT_DIR / 'output/SUBMIT.INFO')
 
         SN_IDs = []
         for hf, pf in zip(head_files, phot_files):
