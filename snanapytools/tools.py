@@ -354,7 +354,10 @@ class SNANA_PDF:
         return pdf_dic
     
     
-def apply_selec(selec_prob, head_df, phot_df):
+def apply_selec(selec_prob, head_df, phot_df, seed=None):
+    
+    random_gen = np.random.default_rng(seed)
+    
     # Main function
     mask = np.zeros(len(head_df), dtype='bool')
     photmask = np.zeros(len(phot_df), dtype='bool')
@@ -364,18 +367,24 @@ def apply_selec(selec_prob, head_df, phot_df):
         min_mag = sn_phot['SIM_MAGOBS'][(sn_phot['BAND'].map(lambda x: x.strip()) == selec_prob['band'])].min()
         p = selec_prob['prob'](min_mag)
 
-        if np.random.random() < p:
+        if random_gen.random() < p:
             mask[i] = True
             photmask[sn_prop['PTROBS_MIN']-1:sn_prop['PTROBS_MAX']] = True
     return mask, photmask
 
-def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], only_include=[], compress=True, overwrite=False):
+def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], only_include=[], 
+                           compress=True, overwrite=False, random_seed=None):
+
     __PIPPIN_OUTPUT__ = os.getenv('PIPPIN_OUTPUT')
-    
-    print(f'$PIPPIN_OUTPUT = {__PIPPIN_OUTPUT__}\n')
-    
-    print(f'READING  {_PIPPIN_OUTPUT__ + '/' + pip_dir}\n')
     PIP_DIR = Path(__PIPPIN_OUTPUT__ + '/' + pip_dir)
+
+    loglines =  "SELECTION LOGS\n"
+    loglines += "==============\n\n"
+    loglines += f"PIPPIN_DIR: {PIP_DIR}\n"
+
+    print(f"$PIPPIN_OUTPUT = {__PIPPIN_OUTPUT__}\n\n")
+    print(f"READING {PIP_DIR}\n")
+    
     SIM_DIR = PIP_DIR / '1_SIM'
     FIT_DIR = PIP_DIR / '2_LCFIT'
     
@@ -385,15 +394,28 @@ def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], 
 
     print(f'WRITE IN {OUT_DIR.stem}\n')
     
-    for sd, fd in zip(sorted(SIM_DIR.glob('*')), sorted(FIT_DIR.glob('*'))):
+    SIM_DIRS = sorted(SIM_DIR.glob('*'))
+    FIT_DIRS = sorted(FIT_DIR.glob('*'))
+    
+    SeedSeq = np.random.SeedSequence(random_seed)
+    Seeds = np.random.SeedSequence(random_seed).spawn(len(SIM_DIRS))
+
+    loglines += f"RANDOM SEED: {SeedSeq.entropy}\n" 
+    loglines += " ".join([s.name for s in SIM_DIRS]) + "\n"
+    
+    for seed, sd, fd in zip(Seeds, SIM_DIRS, FIT_DIRS):
         if sd.name in exclude:
-            print(f'{sd.name} EXCLUDED\n')
+            print(f"{sd.name} EXCLUDED\n")
+            loglines += f"{sd.name}: EXCLUDED\n"
             continue
         elif (len(only_include) > 0) and (sd.name not in only_include):
-            print(f'{sd.name} EXCLUDED\n')
+            print(f"{sd.name} EXCLUDED\n")
+            loglines += f"{sd.name}: EXCLUDED\n"
             continue
-        
-        print(f'PROCESSING {sd.name}\n')
+        else:
+            loglines += f"{sd.name}: PROCESSED\n"
+
+        print(f"PROCESSING {sd.name}\n")
 
         head_files = sorted(sd.glob('*/*_HEAD*'))
         phot_files = sorted(sd.glob('*/*_PHOT*'))
@@ -465,20 +487,40 @@ def apply_selec_pippin_dir(pip_dir, out_dir, selec_prob, suffix='', exclude=[], 
             SN_IDs.append(new_head[1].data['SNID'])
             
         SN_IDs = np.hstack(SN_IDs).astype('int')
+        loglines += f"N REMAINING SNe FROM {sd.name}: {len(SN_IDs)}\n"
         
         print(f'PROCESSING {fd.name}\n')
         for fitresf in sorted(fd.glob('output/*/*.FITRES*')):
             # Define new fit files
             new_fit_dir = VERSION_FIT_OUT_DIR / fitresf.parents[1].name / fitresf.parents[0].name
             new_fit_dir.mkdir(parents=True, exist_ok=True)
-            new_fit_file = new_fit_dir / fitresf.name
-
+            new_fit_file = new_fit_dir / fitresf.stem
+                        
+            # Capture comments
+            comments = []
+            with gzip.GzipFile(fitresf, 'r') as f:
+                i = 0
+                while i <= 100:
+                    l = f.readline()
+                    if l.startswith(b'SN:'):
+                        break
+                    comments.append(l)
+                    i+= 1
+                if i == 100:
+                    raise ValueError('VARNAMES not found')    
+            comments = [''.join([c.decode("utf-8") for c in comments]).rstrip()]
+            
             # Read data
             fitres = Table.read(fitresf, format='ascii')
+            fitres.meta['comments'] = comments
             mask = np.isin(fitres['CID'], SN_IDs)
-            ascii.write(fitres[mask], output=new_fit_file, overwrite=overwrite)
+            ascii.write(fitres[mask], output=new_fit_file, 
+                        overwrite=overwrite, comment='', format="no_header")
             if compress:
                 with open(new_fit_file, 'rb') as f_in:
                     with gzip.open(new_fit_file.with_suffix('.FITRES.gz'),'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 new_fit_file.unlink()
+                
+    with open(OUT_DIR / "SELECTION.LOG", "w") as f:
+        f.write(loglines)
