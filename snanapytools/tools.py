@@ -283,7 +283,7 @@ def write_wgtmap(path, header_dic, var_dic):
         DocStr += f"    {k.upper()}: {header_dic[k]}\n"
     DocStr += "DOCUMENTATION_END: \n"
     file.write(DocStr)
-    file.write("VARNAMES_WGTMAP: " + " ".join([k.upper() for k in var_dic]) + "\n")
+    file.write("VARNAMES_WGTMAP: " + " ".join([k for k in var_dic]) + "\n")
     
     lines = '\n'.join(ut.GalLine(*[var_dic[k] for k in var_dic], first='WGT: '))
     file.write(lines)
