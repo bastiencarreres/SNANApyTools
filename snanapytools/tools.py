@@ -285,11 +285,9 @@ def write_wgtmap(path, header_dic, var_dic):
     file.write(DocStr)
     file.write("VARNAMES_WGTMAP: " + " ".join([k.upper() for k in var_dic]) + "\n")
     
-    lines = '\n'.join(ut.GalLine(*[var_dic['LOGMASS'], var_dic['WGT'], var_dic['SNMAGSHIFT']], first='WGT: '))
+    lines = '\n'.join(ut.GalLine(*[var_dic[k] for k in var_dic], first='WGT: '))
     file.write(lines)
     file.close()
-    
-        
     
 def read_wgtmap(file):
     f = open(file, "r")
@@ -354,20 +352,19 @@ class SNANA_PDF:
         return pdf_dic
     
     
-def apply_selec(selec_prob, head_df, phot_df, seed=None):
-    
-    random_gen = np.random.default_rng(seed)
-    
+def apply_selec(selec_prob, head_df, phot_df):
     # Main function
     mask = np.zeros(len(head_df), dtype='bool')
     photmask = np.zeros(len(phot_df), dtype='bool')
     for i in range(len(head_df)):
         sn_prop = head_df.iloc[i]
         sn_phot = phot_df.iloc[sn_prop['PTROBS_MIN']-1:sn_prop['PTROBS_MAX']]
-        min_mag = sn_phot['SIM_MAGOBS'][(sn_phot['BAND'].map(lambda x: x.strip()) == selec_prob['band'])].min()
+        snr_mask = sn_phot['FLUXCAL']/sn_phot['FLUXCALERR'] > 5
+        band_mask = np.isin(sn_phot['BAND'].map(lambda x: x.strip()), selec_prob['bands'])
+        idx_minmag = sn_phot['SIM_MAGOBS'][snr_mask & band_mask].argmin()        
+        min_mag = sn_phot['SIM_MAGOBS'].iloc[idx_minmag]
         p = selec_prob['prob'](min_mag)
-
-        if random_gen.random() < p:
+        if np.random.random() < p:
             mask[i] = True
             photmask[sn_prop['PTROBS_MIN']-1:sn_prop['PTROBS_MAX']] = True
     return mask, photmask
