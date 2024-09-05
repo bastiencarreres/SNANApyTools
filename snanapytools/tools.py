@@ -276,12 +276,12 @@ def read_wgtmap(file):
     lines = np.array(f.readlines())
     lines = lines[~ut.vstartswith(lines, '#')]
 
-    wgt_keys = lines[ut.vstartswith(lines, 'VARNAMES_WGTMAP')][0].replace('\n', '').strip().split(' ')[1:]
+    wgt_keys = " ".join(lines[ut.vstartswith(lines, 'VARNAMES_WGTMAP')][0].replace('\n', '').strip().split()).split()[1:]
     wgt_idx = np.arange(len(lines))[ut.vstartswith(lines, 'WGT')]
 
     wgt_map = {k: [] for k in wgt_keys}
     for l in lines[wgt_idx]:
-        l = l.replace('\n', '').split(' ')[1:]
+        l = " ".join(l.replace('\n', '').strip().split()).split(' ')[1:]
         for k, e in zip(wgt_keys, l):
             wgt_map[k].append(float(e))
 
