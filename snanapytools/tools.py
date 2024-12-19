@@ -290,8 +290,15 @@ def write_wgtmap(path, header_dic, var_dic):
     file.close()
     
 def read_wgtmap(file):
-    f = open(file, "r")
-    lines = np.array(f.readlines())
+    file = Path(file)
+    if file.suffix == '.gz':
+        f = gzip.open(file,'rb')
+        lines = np.array([l.decode() for l in f.readlines()])
+    else:
+        f = open(file, "r")
+        lines = np.array(f.readlines())
+
+        
     lines = lines[~ut.vstartswith(lines, '#')]
 
     wgt_keys = lines[ut.vstartswith(lines, 'VARNAMES_WGTMAP')][0].replace('\n', '').split(' ')[1:]
