@@ -298,23 +298,36 @@ def read_wgtmap(file):
         f = open(file, "r")
         lines = np.array(f.readlines())
 
-        
     lines = lines[~ut.vstartswith(lines, '#')]
+    varnames_mask = ut.vstartswith(lines, 'VARNAMES_WGTMAP')
+    if not varnames_mask.any():
+        varnames_mask = ut.vstartswith(lines, 'VARNAMES')
+    
+    varname_lines = np.where(varnames_mask)[0]    
+    vardic = {}
+    for i in range(len(varname_lines)):
+        varl = lines[varname_lines[i]]
+        wgt_keys = varl.replace('\n', '').split(' ')[1:]
+        wgt_keys = list(filter(('').__ne__, wgt_keys))
 
-    wgt_keys = lines[ut.vstartswith(lines, 'VARNAMES_WGTMAP')][0].replace('\n', '').split(' ')[1:]
-    wgt_keys = list(filter(('').__ne__, wgt_keys))
-
-    wgt_idx = np.arange(len(lines))[ut.vstartswith(lines, 'WGT')]
-
-    wgt_map = {k: [] for k in wgt_keys}
-    for l in lines[wgt_idx]:
-        l = l.partition('#')[0]
-        l = l.replace('\n', '').split(' ')[1:]
-        l = list(filter(('').__ne__, l))
-        for k, e in zip(wgt_keys, l):
-            wgt_map[k].append(float(e))
-
-    return pd.DataFrame(wgt_map)
+        idxmin = varname_lines[i]
+        if i + 1 < len(varname_lines):
+            idxmax = varname_lines[i+1]
+        else:
+            idxmax = len(lines) + 1
+            
+        wgt_idx = np.arange(idxmin, idxmin + len(lines[idxmin: idxmax]))[ut.vstartswith(lines[idxmin: idxmax], 'WGT')]
+        if not wgt_idx.any():
+            wgt_idx = np.arange(idxmin, idxmin + len(lines[idxmin: idxmax]))[ut.vstartswith(lines[idxmin: idxmax], 'PDF')]
+        wgt_map = {k: [] for k in wgt_keys}
+        for l in lines[wgt_idx]:
+            l = l.partition('#')[0]
+            l = l.replace('\n', '').split(' ')[1:]
+            l = list(filter(('').__ne__, l))
+            for k, e in zip(wgt_keys, l):
+                wgt_map[k].append(float(e))
+        vardic[wgt_keys[0]] = pd.DataFrame(wgt_map)
+    return vardic
 
 def read_hostlib(file):
     f = open(file, 'r')
