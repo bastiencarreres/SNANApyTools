@@ -8,42 +8,28 @@ import os
 import shutil
 import gzip
 from multiprocessing import Pool
-from numba import njit, guvectorize
-from shapely import geometry as shp_geo
-from shapely import ops as shp_ops
-from astropy.io import fits, ascii
 from astropy.table import Table
 from pathlib import Path
 from . import utils as ut
 
-class SNANAsim:
-    def __init__(self, sim_name, sim_path='./'):
-        self.sim_name = sim_name
-        self.sim_path = sim_path
-        self.lcs = self.init_lcs_table()
-        self.params = self.init_par_table()
-        
-    def init_lcs_table(self):
-        df = Table.read(self.sim_path + self.sim_name + '_PHOT.FITS').to_pandas()
-        sepidx = [0, *df.index[df.MJD == -777]]
-        
-        df['ID'] = 0
-        df['epochs'] = 0
-        for i, (i1, i2) in enumerate(zip(sepidx[:-1], sepidx[1:])):
-            if i1 > 0:
-                i1 += 1
-            df.loc[i1:(i2 - 1), 'ID'] = i
-            df.loc[i1:(i2 - 1), 'epochs'] = np.arange(0, i2 - i1)
-        return df.drop(index=sepidx[1:]).set_index(['ID', 'epochs'])
+def dataframecol_decoder(df):
+    for col, dtype in df.dtypes.items():
+        if dtype == object:  # Only process object columns.
+            # decode, or return original value if decode return Nan
+            df[col] = df[col].str.decode('utf-8').fillna(df[col]) 
+
+def read_SNANAfits(file, **kwargs):
+    df = Table.read(file, **kwargs).to_pandas()
+    dataframecol_decoder(df)
+    return df
     
-    def init_par_table(self):
-        df = Table.read(self.sim_path + self.sim_name + '_HEAD.FITS').to_pandas()
-        df.index.name = 'ID'
-        df['SNID'] = df['SNID'].map(lambda x: int(x))
-        pointsRA = df.RA + 360 * (df.RA < 0) 
-        geo = gpd.points_from_xy(np.radians(pointsRA), np.radians(df.DEC))
-        return gpd.GeoDataFrame(data=df, geometry=geo)
-        
+def print_directory_tree(root_dir, indent="", nofile=False, filters=None):
+    for item in root_dir.iterdir():
+        if not nofile and item.is_file():
+            continue
+        print(indent + "├── " + item.name)
+        if item.is_dir():
+            print_directory_tree(item, indent=indent + "│   ")
 
 class SNANA_simlib:
     _default_keys = ['MJD','IDEXPT','FLT','GAIN','NOISE','SKYSIG','PSF1','PSF2','RATIO','ZPTAVG','ZPTSIG','MAG']
