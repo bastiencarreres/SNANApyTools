@@ -67,7 +67,7 @@ class PIPPIN_READER:
         if kind == 'cov':
             return set(d.name for d in self.createcov_path.iterdir())
  
-    def get_sim(self, sim_name: str | PosixPath) -> SNANA_SIM:
+    def get_sim(self, sim_name: str | PosixPath,  **kwargs) -> SNANA_SIM:
         """Get SNANA_SIM object of the simulation.
 
         Parameters
@@ -86,9 +86,9 @@ class PIPPIN_READER:
         sim_dir = list(d for d in sim_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(sim_dir) > 1:
             raise ValueError(f'Multiple sims in {sim_dir}')
-        return SNANA_SIM(sim_dir[0])
+        return SNANA_SIM(sim_dir[0], **kwargs)
 
-    def get_fit(self, fitlc_name: str | PosixPath) -> SNANA_FIT:
+    def get_fit(self, fitlc_name: str | PosixPath, **kwargs) -> SNANA_FIT:
         """Get SNANA_FIT object of the given FITLC.
 
         Parameters
@@ -108,9 +108,9 @@ class PIPPIN_READER:
         if len(fit_dir) > 1:
             raise ValueError(f'Multiple fitlc directories in {fit_dir}')
 
-        return SNANA_FIT(fit_dir[0])
+        return SNANA_FIT(fit_dir[0], **kwargs)
     
-    def get_biascor(self, biascor_name: str | PosixPath) -> SNANA_BIASCOR:
+    def get_biascor(self, biascor_name: str | PosixPath, **kwargs) -> SNANA_BIASCOR:
         """Get SNANA_BIASCOR object of the given BIASCOR
 
         Parameters
@@ -126,7 +126,7 @@ class PIPPIN_READER:
         if biascor_name not in self.available_biascor:
             raise ValueError(f"{biascor_name} is not available. Check self.available_biascor. Maybe refresh with self.up_dir('biascor')")
         biascor_dir =  self.biascor_path / biascor_name / 'output/OUTPUT_BBCFIT'
-        return SNANA_BIASCOR(biascor_dir)
+        return SNANA_BIASCOR(biascor_dir, **kwargs)
 
     def print_tree(self, nofile: bool = False):
         """Print PIPPIN dir tree.
