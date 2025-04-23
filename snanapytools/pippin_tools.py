@@ -116,7 +116,7 @@ class PIPPIN_READER:
         biascor_dir =  self.biascor_path / biascor_name / 'output/OUTPUT_BBCFIT'
         return SNANA_BIASCOR(biascor_dir)
 
-    def print_tree(self, nofile: bool = False, name='full'):
+    def print_tree(self, nofile: bool = False):
         """Print PIPPIN dir tree.
 
         Parameters
@@ -126,11 +126,6 @@ class PIPPIN_READER:
         filters : _type_, optional
             _description_, by default None (Not Implemented Yet)
         """        
-        if name == 'full':
-            print(self.name)
-            tls.print_directory_tree(self.path, nofile=nofile)
-        else:
-            print(self.name + f'-> {name}')
-            tls.print_directory_tree(self.sim_path / name, nofile=nofile)
-        
+        print(self.name)
+        tls.print_directory_tree(self.path, nofile=nofile)
 
