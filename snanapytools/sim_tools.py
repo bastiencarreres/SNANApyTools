@@ -72,6 +72,6 @@ class SNANA_SIM:
             Sim data.
         """        
         file, PTROBS_MIN, PTROBS_MAX = self.head.loc[snid, ['PHOT_FILE', 'PTROBS_MIN', 'PTROBS_MAX']]
-        return tls.read_SNANAfits(sim._phot_files[file]).iloc[PTROBS_MIN-1:PTROBS_MAX]
+        return tls.read_SNANAfits(self._phot_files[file]).iloc[PTROBS_MIN-1:PTROBS_MAX]
         
 
