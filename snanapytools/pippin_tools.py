@@ -110,7 +110,19 @@ class PIPPIN_READER:
 
         return SNANA_FIT(fit_dir[0])
     
-    def get_biascor(self, biascor_name: str | PosixPath):
+    def get_biascor(self, biascor_name: str | PosixPath) -> SNANA_BIASCOR:
+        """Get SNANA_BIASCOR object of the given BIASCOR
+
+        Parameters
+        ----------
+        biascor_name : str | PosixPath
+            BIASCOR name
+
+        Returns
+        -------
+        SNANA_BIASCOR
+            The SNANA_BIASCOR object of the BIASCOR.
+        """        
         if biascor_name not in self.available_biascor:
             raise ValueError(f"{biascor_name} is not available. Check self.available_biascor. Maybe refresh with self.up_dir('biascor')")
         biascor_dir =  self.biascor_path / biascor_name / 'output/OUTPUT_BBCFIT'
