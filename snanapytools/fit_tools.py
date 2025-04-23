@@ -15,7 +15,7 @@ class SNANA_FIT:
         fit_dir : str
             path to snlc_fit.exe output dir.
         load_data : bool, optional
-            _description_, by default True
+            load or not data tables, by default True
         
         """        
         self.dir = Path(fit_dir) 

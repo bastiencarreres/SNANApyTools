@@ -4,12 +4,13 @@ import os
 from pathlib import Path, PosixPath
 from .sim_tools import SNANA_SIM
 from .fit_tools import SNANA_FIT
+from .biascor_tools import SNANA_BIASCOR
 from . import tools as tls
 
 class PIPPIN_READER: 
     """Python wrapper for SNANA output run by PIPPIN.
     """      
-    def __init__(self, name: str, pippin_output=None: str):
+    def __init__(self, name: str, pippin_output: str=None):
         """Init PIPPIN_READER.
 
         Parameters
@@ -44,7 +45,7 @@ class PIPPIN_READER:
         self.available_biascor = self.up_dir('biascor')
         self.available_createcov = self.up_dir('cov')
         
-    def up_dir(self, kind: str):
+    def up_dir(self, kind: str) -> set:
         """Get list of outputs of some kind. kind = 'sim', 'fitlc', 'biascor', 'cov'
 
         Parameters
@@ -66,7 +67,7 @@ class PIPPIN_READER:
         if kind == 'cov':
             return set(d.name for d in self.createcov_path.iterdir())
  
-    def get_sim(self, sim_name: str | PosixPath):
+    def get_sim(self, sim_name: str | PosixPath) -> SNANA_SIM:
         """Get SNANA_SIM object of the simulation.
 
         Parameters
@@ -87,7 +88,7 @@ class PIPPIN_READER:
             raise ValueError(f'Multiple sims in {sim_dir}')
         return SNANA_SIM(sim_dir[0])
 
-    def get_fit(self, fitlc_name: str | PosixPath):
+    def get_fit(self, fitlc_name: str | PosixPath) -> SNANA_FIT:
         """Get SNANA_FIT object of the given FITLC.
 
         Parameters
@@ -109,7 +110,13 @@ class PIPPIN_READER:
 
         return SNANA_FIT(fit_dir[0])
     
-    def print_tree(self, nofile=False, filters=None):
+    def get_biascor(self, biascor_name: str | PosixPath):
+        if biascor_name not in self.available_biascor:
+            raise ValueError(f"{biascor_name} is not available. Check self.available_biascor. Maybe refresh with self.up_dir('biascor')")
+        biascor_dir =  self.biascor_path / biascor_name / 'output/OUTPUT_BBCFIT'
+        return SNANA_BIASCOR(biascor_dir)
+
+    def print_tree(self, nofile: bool = False, name='full'):
         """Print PIPPIN dir tree.
 
         Parameters
@@ -119,5 +126,11 @@ class PIPPIN_READER:
         filters : _type_, optional
             _description_, by default None (Not Implemented Yet)
         """        
-        print(self.name)
-        tls.print_directory_tree(self.path, nofile=nofile)
+        if name == 'full':
+            print(self.name)
+            tls.print_directory_tree(self.path, nofile=nofile)
+        else:
+            print(self.name + f'-> {name}')
+            tls.print_directory_tree(self.sim_path / name, nofile=nofile)
+        
+
