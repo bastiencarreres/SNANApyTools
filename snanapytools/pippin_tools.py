@@ -86,7 +86,7 @@ class PIPPIN_READER:
         sim_dir = list(d for d in sim_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(sim_dir) > 1:
             print('Multiple sims found') 
-            return [SNANA_SIM(s, **kwargs) for s in sim_dir]
+            return {s.name: SNANA_SIM(s, **kwargs) for s in sim_dir}
         
         return SNANA_SIM(sim_dir[0], **kwargs)
 
@@ -108,8 +108,8 @@ class PIPPIN_READER:
         fit_dir = self.fitlc_path / fitlc_name / 'output'
         fit_dir = list(d for d in fit_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(fit_dir) > 1:
-            print('Multiple sims found')
-            return [SNANA_FIT(f, **kwargs) for f in fit_dir]
+            print('Multiple fit found')
+            return {f.name: SNANA_FIT(f, **kwargs) for f in fit_dir}
         return SNANA_FIT(fit_dir[0], **kwargs)
     
     def get_biascor(self, biascor_name: str | PosixPath, **kwargs) -> SNANA_BIASCOR:
@@ -127,8 +127,12 @@ class PIPPIN_READER:
         """        
         if biascor_name not in self.available_biascor:
             raise ValueError(f"{biascor_name} is not available. Check self.available_biascor. Maybe refresh with self.up_dir('biascor')")
-        biascor_dir =  self.biascor_path / biascor_name / 'output/OUTPUT_BBCFIT'
-        return SNANA_BIASCOR(biascor_dir, **kwargs)
+        biascor_dir =  self.biascor_path / biascor_name / 'output'
+        biascor_dir = list(d for d in biascor_dir.iterdir() if (d.is_dir() and 'OUTPUT_BBCFIT' in d.name))
+        if len(biascor_dir) > 1:
+            print('Multiple biascor found')
+            return {b.name: SNANA_BIASCOR(b, **kwargs) for b in biascor_dir}
+        return SNANA_BIASCOR(biascor_dir[0], **kwargs)
 
     def print_tree(self, nofile: bool = False):
         """Print PIPPIN dir tree.
