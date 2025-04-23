@@ -1,6 +1,7 @@
 """This module contains tools relative to SNANA snlc_sim.exe output."""
 from pathlib import Path, PosixPath
 from . import tools as tls
+import pandas as pd
 
 
 class SNANA_SIM:

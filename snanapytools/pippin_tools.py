@@ -85,7 +85,9 @@ class PIPPIN_READER:
         sim_dir =  self.sim_path / sim_name
         sim_dir = list(d for d in sim_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(sim_dir) > 1:
-            raise ValueError(f'Multiple sims in {sim_dir}')
+            print('Multiple sims found') 
+            return [SNANA_SIM(s, **kwargs) for s in sim_dir]
+        
         return SNANA_SIM(sim_dir[0], **kwargs)
 
     def get_fit(self, fitlc_name: str | PosixPath, **kwargs) -> SNANA_FIT:
@@ -106,8 +108,8 @@ class PIPPIN_READER:
         fit_dir = self.fitlc_path / fitlc_name / 'output'
         fit_dir = list(d for d in fit_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(fit_dir) > 1:
-            raise ValueError(f'Multiple fitlc directories in {fit_dir}')
-
+            print('Multiple sims found')
+            return [SNANA_FIT(f, **kwargs) for f in fit_dir]
         return SNANA_FIT(fit_dir[0], **kwargs)
     
     def get_biascor(self, biascor_name: str | PosixPath, **kwargs) -> SNANA_BIASCOR:
