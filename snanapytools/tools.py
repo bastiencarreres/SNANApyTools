@@ -1,5 +1,6 @@
 import pandas as pd
 import time
+import yaml
 import numpy as np
 import geopandas as gpd
 import re
@@ -22,6 +23,35 @@ def read_SNANAfits(file, **kwargs):
     df = Table.read(file, **kwargs).to_pandas()
     dataframecol_decoder(df)
     return df
+
+def read_biascor_input_doc(file):
+    yml_text = ''
+    with open(file) as f:
+        yml_write = True
+        for l in f.readlines():
+            if '#END_YAML' in l:
+                yml_write = False
+            if yml_write:
+                yml_text += l
+            if l.startswith('simfile_biascor'):
+                biascor_files = l.split('=')[-1]
+                biascor_files = [Path(l.strip()) for l in biascor_files.split(',')]
+                for i, b in enumerate(biascor_files):
+                    while b.parent.name != '5_MERGE':
+                        b = b.parent
+                    biascor_files[i] = b
+                break
+                
+    config = yaml.safe_load(yml_text)['CONFIG']
+    
+    return config, biascor_files
+
+def trace_fitlc_from_merge(merge_dir):
+    config_file = Path(merge_dir) / 'config.yml'
+    with open(config_file) as f:
+       fitlc_parent = yaml.safe_load(f)['OUTPUT']['lcfit_name']
+        
+    return fitlc_parent
     
 def print_directory_tree(root_dir, indent="", nofile=False, filters=None):
     for item in root_dir.iterdir():
