@@ -238,7 +238,7 @@ class PIPPIN_READER:
             raise ImportError('Please install graphviz before using this function.')
         
         G = graphviz.Digraph('SNANA', comment='SNANA pipeline') 
-        G.attr(rankdir='LR')
+        G.attr(rankdir='LR', style='rounded')
         
         with G.subgraph(name='cluster_0') as c:
             c.node_attr['style'] = 'filled'
