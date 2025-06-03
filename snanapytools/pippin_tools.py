@@ -17,6 +17,7 @@ except ImportError:
 class PIPPIN_READER: 
     """Python wrapper for SNANA output run by PIPPIN.
     """      
+    _STEPS = ['sim', 'fitlc', 'clas', 'agg', 'merge', 'biascor', 'create_cov']
     def __init__(self, name: str, pippin_output: str=None):
         """Init PIPPIN_READER.
 
@@ -42,24 +43,18 @@ class PIPPIN_READER:
         self.name = name     
         self.path = self.__PIPPIN__OUTPUT__ / name
         
-        self.sim_path = self.path / '1_SIM'
-        self.fitlc_path = self.path / '2_LCFIT'
-        self.clas_path = self.path / '3_CLAS'
-        self.agg_path = self.path / '4_AGG'
-        self.merge_path = self.path / '5_MERGE'
-        self.biascor_path = self.path / '6_BIASCOR'
-        self.createcov_path = self.path / '7_CREATE_COV'
+        for i, s in enumerate(self._STEPS):
+            path = self.path / f'{i+1}_{s.upper()}'
+            if path.exists():
+                setattr(self, s + '_path', path)
+                setattr(self, 'available_' + s, self.up_dir(s))
+            else:
+                setattr(self, s + '_path', None)
+                setattr(self, 'available_' + s, None)
 
-        self.available_sim = self.up_dir('sim')
-        self.available_fitlc = self.up_dir('fitlc')
-        self.available_clas = self.up_dir('clas')
-        self.available_agg = self.up_dir('agg')
-        self.available_merge = self.up_dir('merge')
-        self.available_biascor = self.up_dir('biascor')
-        self.available_createcov = self.up_dir('cov')
-        
         self.tree, self.fitopt_map = self.build_tree()
         
+    
     def up_dir(self, kind: str) -> set:
         """Get list of outputs of some kind. kind = 'sim', 'fitlc', 'biascor', 'cov'
 
@@ -85,8 +80,8 @@ class PIPPIN_READER:
             return set(d.name for d in self.merge_path.iterdir())
         if kind == 'biascor':
             return set(d.name for d in self.biascor_path.iterdir())
-        if kind == 'cov':
-            return set(d.name for d in self.createcov_path.iterdir())
+        if kind == 'create_cov':
+            return set(d.name for d in self.create_cov_path.iterdir())
  
     def build_tree(self):
         """Genrate the PIPPI tree
