@@ -17,7 +17,7 @@ except ImportError:
 class PIPPIN_READER: 
     """Python wrapper for SNANA output run by PIPPIN.
     """      
-    _STEPS = ['sim', 'fitlc', 'clas', 'agg', 'merge', 'biascor', 'create_cov']
+    _STEPS = ['dataprep', 'sim', 'lcfit', 'clas', 'agg', 'merge', 'biascor', 'create_cov']
     def __init__(self, name: str, pippin_output: str=None):
         """Init PIPPIN_READER.
 
@@ -44,47 +44,22 @@ class PIPPIN_READER:
         self.path = self.__PIPPIN__OUTPUT__ / name
         
         for i, s in enumerate(self._STEPS):
-            path = self.path / f'{i+1}_{s.upper()}'
+            path = self.path / f'{i}_{s.upper()}'
+            print(path)
             if path.exists():
                 setattr(self, s + '_path', path)
-                setattr(self, 'available_' + s, self.up_dir(s))
+                setattr(self, 'available_' + s, set(d.name for d in getattr(self, s + '_path').iterdir()))
             else:
                 setattr(self, s + '_path', None)
                 setattr(self, 'available_' + s, None)
+            
 
         self.tree, self.fitopt_map = self.build_tree()
         
-    
-    def up_dir(self, kind: str) -> set:
-        """Get list of outputs of some kind. kind = 'sim', 'fitlc', 'biascor', 'cov'
 
-        Parameters
-        ----------
-        kind : str
-            sim, fitlc, biascor, cov
-
-        Returns
-        -------
-        set
-            Available outputs.
-        """        
-        if kind == 'sim':
-            return set(d.name for d in self.sim_path.iterdir())
-        if kind == 'fitlc':
-            return set(d.name for d in self.fitlc_path.iterdir())
-        if kind == 'clas':
-            return set(d.name for d in self.clas_path.iterdir())
-        if kind == 'agg':
-            return set(d.name for d in self.agg_path.iterdir())
-        if kind == 'merge':
-            return set(d.name for d in self.merge_path.iterdir())
-        if kind == 'biascor':
-            return set(d.name for d in self.biascor_path.iterdir())
-        if kind == 'create_cov':
-            return set(d.name for d in self.create_cov_path.iterdir())
  
     def build_tree(self):
-        """Genrate the PIPPI tree
+        """Genrate the PIPPIN tree
 
         Returns
         -------
@@ -104,19 +79,17 @@ class PIPPIN_READER:
                 'parents': set()
                 }
             
-        for fit_name in self.available_fitlc:
-            fit_dir = self.fitlc_path / fit_name / 'output'
+        for fit_name in self.available_lcfit:
+            fit_dir = self.lcfit_path / fit_name / 'output'
             fit_tree[fit_name] = {
                 'files': set(d for d in fit_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name)),
                 'parents': set()
             }
             
-            with open(self.fitlc_path / fit_name / 'config.yml') as f:
+            with open(self.lcfit_path / fit_name / 'config.yml') as f:
                 output = yaml.safe_load(f)['OUTPUT']
-            if output['is_data']:
-                raise NotImplementedError
-            else:
                 fit_tree[fit_name]['parents'].add(output['sim_name'])
+                fit_tree[fit_name]['is_data'] = output['is_data']
 
             fitopt_map[fit_name] = {k: f'{i:03d}' for i, k in enumerate(output['fitopt_map'].keys())}
             
@@ -130,15 +103,15 @@ class PIPPIN_READER:
             biascor_parents = []
             for mf in biascor_summary['INPDIR+']:
                 merge_dir = Path(mf).parent 
-                fit_parents.append(tls.trace_fitlc_from_merge(merge_dir))
+                fit_parents.append(tls.trace_lcfit_from_merge(merge_dir))
 
             for mf in biascor_files:
-                biascor_parents.append(tls.trace_fitlc_from_merge(mf))
+                biascor_parents.append(tls.trace_lcfit_from_merge(mf))
                 
             biascor_tree[biascor_name]['parents'] = set(fit_parents)
             biascor_tree[biascor_name]['biascor_parents'] = set(biascor_parents)
 
-        PIPPIN_TREE = {'SIM': sim_tree, 'FITLC': fit_tree, 'BIASCOR': biascor_tree}
+        PIPPIN_TREE = {'SIM': sim_tree, 'LCFIT': fit_tree, 'BIASCOR': biascor_tree}
         return PIPPIN_TREE, fitopt_map
     
     def get_sim(self, sim_name: str | PosixPath,  **kwargs) -> SNANA_SIM:
@@ -164,22 +137,22 @@ class PIPPIN_READER:
         
         return SNANA_SIM(sim_dir[0], **kwargs)
 
-    def get_fit(self, fitlc_name: str | PosixPath, **kwargs) -> SNANA_FIT:
-        """Get SNANA_FIT object of the given FITLC.
+    def get_fit(self, lcfit_name: str | PosixPath, **kwargs) -> SNANA_FIT:
+        """Get SNANA_FIT object of the given lcfit.
 
         Parameters
         ----------
-        fitlc_name : str | PosixPath
-            FITLC name
+        lcfit_name : str | PosixPath
+            LCFIT name
 
         Returns
         -------
         SNANA_FIT
-            The SNANA_FIT object of the FITLC.
+            The SNANA_FIT object of the LCFIT.
         """        
-        if fitlc_name not in self.available_fitlc:
-            raise ValueError(f"{fitlc_name} is not available. Check self.available_fitlc. Maybe refresh with self.up_dir('fitlc')")
-        fit_dir = self.fitlc_path / fitlc_name / 'output'
+        if lcfit_name not in self.available_lcfit:
+            raise ValueError(f"{lcfit_name} is not available. Check self.available_lcfit. Maybe refresh with self.up_dir('lcfit')")
+        fit_dir = self.lcfit_path / lcfit_name / 'output'
         fit_dir = list(d for d in fit_dir.iterdir() if (d.is_dir() and 'PIP_' in d.name))
         if len(fit_dir) > 1:
             print('Multiple fit found')
@@ -237,30 +210,41 @@ class PIPPIN_READER:
         
         with G.subgraph(name='cluster_0') as c:
             c.node_attr['style'] = 'filled'
+            c.attr(label='DATAPREP')
+
+            for s in self.available_dataprep:
+                if name_filter == 'full' or name_filter in s:
+                    c.node('DATAPREP_' + s, label=s)
+        
+        with G.subgraph(name='cluster_1') as c:
+            c.node_attr['style'] = 'filled'
             c.attr(label='SIM')
 
             for s in self.available_sim:
                 if name_filter == 'full' or name_filter in s:
                     c.node('SIM_' + s, label=s)
             
-        with G.subgraph(name='cluster_1') as c:
+        with G.subgraph(name='cluster_2') as c:
             c.node_attr['style'] = 'filled'
-            c.attr(label='FIT')
-            for f in self.available_fitlc:
+            c.attr(label='LCFIT')
+            for f in self.available_lcfit:
                 if name_filter == 'full' or name_filter in f:
                     c.node('FIT_' + f)
         
-        with G.subgraph(name='cluster_2') as c:
+        with G.subgraph(name='cluster_3') as c:
             c.node_attr['style'] = 'filled'
             c.attr(label='BIASCOR')
             for b in self.available_biascor:
                 if name_filter == 'full' or (name_filter in b):
                     c.node('BIASCOR_'+ b, label=b)
                 
-        for f in self.available_fitlc:
-            if f in self.tree['FITLC'] and (name_filter == 'full' or (name_filter in f)):
-                for p in  self.tree['FITLC'][f]['parents']:
-                    G.edge('SIM_' + p, 'FIT_' + f, label='LC fit')  
+        for f in self.available_lcfit:
+            if f in self.tree['LCFIT'] and (name_filter == 'full' or (name_filter in f)):
+                for p in  self.tree['LCFIT'][f]['parents']:
+                    if self.tree['LCFIT'][f]['is_data']:
+                         G.edge('DATAPREP_' + p, 'FIT_' + f, label='LC fit')  
+                    else:
+                        G.edge('SIM_' + p, 'FIT_' + f, label='LC fit')  
                     
         for f in self.available_biascor:
             if f in self.tree['BIASCOR'] and (name_filter == 'full' or (name_filter in f)):

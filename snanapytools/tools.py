@@ -46,7 +46,7 @@ def read_biascor_input_doc(file):
     
     return config, biascor_files
 
-def trace_fitlc_from_merge(merge_dir):
+def trace_lcfit_from_merge(merge_dir):
     config_file = Path(merge_dir) / 'config.yml'
     with open(config_file) as f:
        fitlc_parent = yaml.safe_load(f)['OUTPUT']['lcfit_name']
