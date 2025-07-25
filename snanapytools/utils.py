@@ -1,4 +1,5 @@
 import numpy as np
+import re
 from numba import njit, guvectorize
 from shapely import geometry as shp_geo
 from shapely import ops as shp_ops
@@ -36,6 +37,14 @@ def R_base(theta, phi, vec):
     R[2, 2] = np.cos(phi)
     return R @ vec
 
+def line_cleaner(line):
+    if isinstance(line, bytes):
+        line = line.decode()
+    if line == '\n':
+        return '\n'
+    line = line.strip()
+    line = re.sub(' +', ' ', line)
+    return line
 
 @guvectorize(["void(float64[:, :], float64[:, :], float64[:,:])"],
               "(m, n),(m, n)->(m, n)", nopython=True)

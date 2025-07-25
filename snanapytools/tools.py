@@ -292,58 +292,73 @@ class SNANA_simlib:
         if return_hostdf:
             return host_infield
 
-def write_wgtmap(path, header_dic, var_dic):
-    file = open(path, 'w')
-    DocStr = "DOCUMENTATION:\n"
-    for k in header_dic:
-        DocStr += f"    {k.upper()}: {header_dic[k]}\n"
-    DocStr += "DOCUMENTATION_END: \n"
-    file.write(DocStr)
-    file.write("VARNAMES_WGTMAP: " + " ".join([k for k in var_dic]) + "\n")
+def write_wgtmap(path, par_dic, 
+                 docstr="DOCUMENTATION:\nDOCUMENTATION_END:",
+                 format_dic={}):
     
-    lines = '\n'.join(ut.GalLine(*[var_dic[k] for k in var_dic], first='WGT: '))
-    file.write(lines)
+    file = open(path, 'w')
+    file.write(docstr + '\n\n')
+
+    for k in par_dic:
+        if isinstance(par_dic[k], (int, float)):
+            if k not in format_dic:
+                format_dic[k] = '.3f'
+            file.write(k + ': ' + f"{par_dic[k]:{format_dic[k]}}")
+        else:
+            file.write("VARNAMES: " + " ".join([v for v in par_dic[k]]) + "\n")
+            if k not in format_dic:
+                format_dic[k] = {}
+            for v in par_dic[k]:
+                if v not in format_dic[k]:
+                    format_dic[k][v] = '.3f'
+            line = "PDF: " 
+            for v in par_dic[k]:
+                line += "{:" + f"{format_dic[k][v]}" + "} "
+            line = line.strip()
+            lines = '\n'.join([line.format(*r[1]) for r in par_dic[k].iterrows()])
+            file.write(lines)
+        file.write('\n')
     file.close()
     
 def read_wgtmap(file):
     file = Path(file)
     if file.suffix == '.gz':
         f = gzip.open(file,'rb')
-        lines = np.array([l.decode() for l in f.readlines()])
     else:
         f = open(file, "r")
-        lines = np.array(f.readlines())
 
-    lines = lines[~ut.vstartswith(lines, '#')]
-    varnames_mask = ut.vstartswith(lines, 'VARNAMES_WGTMAP')
-    if not varnames_mask.any():
-        varnames_mask = ut.vstartswith(lines, 'VARNAMES')
-    
-    varname_lines = np.where(varnames_mask)[0]    
-    vardic = {}
-    for i in range(len(varname_lines)):
-        varl = lines[varname_lines[i]]
-        wgt_keys = varl.replace('\n', '').split(' ')[1:]
-        wgt_keys = list(filter(('').__ne__, wgt_keys))
-
-        idxmin = varname_lines[i]
-        if i + 1 < len(varname_lines):
-            idxmax = varname_lines[i+1]
-        else:
-            idxmax = len(lines) + 1
-            
-        wgt_idx = np.arange(idxmin, idxmin + len(lines[idxmin: idxmax]))[ut.vstartswith(lines[idxmin: idxmax], 'WGT')]
-        if not wgt_idx.any():
-            wgt_idx = np.arange(idxmin, idxmin + len(lines[idxmin: idxmax]))[ut.vstartswith(lines[idxmin: idxmax], 'PDF')]
-        wgt_map = {k: [] for k in wgt_keys}
-        for l in lines[wgt_idx]:
-            l = l.partition('#')[0]
-            l = l.replace('\n', '').split(' ')[1:]
-            l = list(filter(('').__ne__, l))
-            for k, e in zip(wgt_keys, l):
-                wgt_map[k].append(float(e))
-        vardic[wgt_keys[0]] = pd.DataFrame(wgt_map)
-    return vardic
+    line = ut.line_cleaner(f.readline())
+    doc_header = """DOCUMENTATION:
+                       NODOC
+                    DOCUMENTATION_END:
+                 """
+    if "DOCUMENTATION" in line:
+        doc_header = line + '\n'
+        line = ut.line_cleaner(f.readline())
+        while "DOCUMENTATION_END" not in line:
+            doc_header += '    ' + line
+            doc_header += '\n'
+            line = ut.line_cleaner(f.readline())
+        doc_header += 'DOCUMENTATION_END:'  
+    vardic = {} 
+    while line:
+        line = ut.line_cleaner(f.readline())
+        if line.startswith('VARNAMES'):
+            splitted = line.split(' ')
+            var = splitted[1:]
+            var_val = []
+            line = ut.line_cleaner(f.readline())
+            while line.startswith('PDF'):
+                splitted = line.split(' ')
+                var_val.append([float(v) for v in splitted[1:]])
+                line = ut.line_cleaner(f.readline())
+            var_val = np.array(var_val).T
+            vardic[var[0]] = pd.DataFrame({v: val for v, val in zip(var, var_val)})
+        
+        elif line.strip() != '':
+            splitted = line.replace(':', '').split(' ')
+            vardic[splitted[0]] = float(splitted[1])
+    return vardic, doc_header
 
 def read_hostlib(file):
     f = open(file, 'r')
