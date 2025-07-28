@@ -300,10 +300,11 @@ def write_wgtmap(path, par_dic,
     file.write(docstr + '\n\n')
 
     for k in par_dic:
-        if isinstance(par_dic[k], (int, float)):
+        if isinstance(par_dic[k], list):
             if k not in format_dic:
                 format_dic[k] = '.3f'
-            file.write(k + ': ' + f"{par_dic[k]:{format_dic[k]}}")
+            vals = " ".join([f"{v:{format_dic[k]}}" for v in  par_dic[k]])
+            file.write(k + ': ' + vals)
         else:
             file.write("VARNAMES: " + " ".join([v for v in par_dic[k]]) + "\n")
             if k not in format_dic:
@@ -317,7 +318,7 @@ def write_wgtmap(path, par_dic,
             line = line.strip()
             lines = '\n'.join([line.format(*r[1]) for r in par_dic[k].iterrows()])
             file.write(lines)
-        file.write('\n')
+        file.write('\n\n')
     file.close()
     
 def read_wgtmap(file):
@@ -357,7 +358,7 @@ def read_wgtmap(file):
         
         elif line.strip() != '':
             splitted = line.replace(':', '').split(' ')
-            vardic[splitted[0]] = float(splitted[1])
+            vardic[splitted[0]] = [float(v) for v in splitted[1:]]
     return vardic, doc_header
 
 def read_hostlib(file):
