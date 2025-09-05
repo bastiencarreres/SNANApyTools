@@ -3,7 +3,6 @@ import datetime
 from pathlib import Path
 
 class HOSTLIB_writer:
-    
     def __init__(self, host_df, out_path, author_name=None):
         
         self.host_df = host_df
