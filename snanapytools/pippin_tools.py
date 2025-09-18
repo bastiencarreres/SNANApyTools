@@ -50,8 +50,8 @@ class PIPPIN_READER:
                 setattr(self, s + '_path', path)
                 setattr(self, 'available_' + s, set(d.name for d in getattr(self, s + '_path').iterdir()))
             else:
-                setattr(self, s + '_path', None)
-                setattr(self, 'available_' + s, None)
+                setattr(self, s + '_path', set())
+                setattr(self, 'available_' + s,  set())
             
 
         self.tree, self.fitopt_map = self.build_tree()
