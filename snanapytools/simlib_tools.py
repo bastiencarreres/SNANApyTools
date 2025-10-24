@@ -11,12 +11,12 @@ import shapely.affinity as shp_aff
 from . import utils as ut
 from . import tools as tls
 
-    
+
 class SIMLIB_writer:
     _column_keys = {
         'MJD',
-        'IDEXPT',       
-        'FLT',       
+        'IDEXPT',
+        'FLT',
         'GAIN',
         'NOISE',
         'SKYSIG',
@@ -27,13 +27,13 @@ class SIMLIB_writer:
         'ZPTSIG',
         'MAG'
         }
-     
+
     _head_keys = {
-        'LIBID', 
-        'RA', 
+        'LIBID',
+        'RA',
         'DEC',
-        'MWEBV', 
-        'NOBS', 
+        'MWEBV',
+        'NOBS',
         'PIXSIZE',
         'PEAKMJD',
                 }
@@ -45,7 +45,7 @@ class SIMLIB_writer:
         survey_name = 'NONE',
         survey_filters= 'NONE',
         author_name=None,
-        file_suffix="", 
+        file_suffix="",
         documentation_notes={},
     ):
 
@@ -55,13 +55,13 @@ class SIMLIB_writer:
         self.survey_name = survey_name
         self.survey_filters = survey_filters
         self.documentation_notes = documentation_notes
-        
+
         self.survey_hosts = None
-        
+
         self.date_time = datetime.datetime.now()
-    
+
         self.lib_dataline = np.vectorize(self._lib_dataline)
-        
+
     def _init_out_path(self, out_path):
         """Format output path for SIMLIB and HOSTLIB.
 
@@ -168,7 +168,7 @@ class SIMLIB_writer:
         nobs = len(obsdf)
         # String formatting
         s = "# --------------------------------------------" + "\n"
-        s += "LIBID: {0:10d}".format(LIBID) + "\n"
+        s += "LIBID: {0:10d}".format(int(LIBID)) + "\n"
         tmp = "RA: {0:+10.6f} DEC: {1:+10.6f}   NOBS: {2:10d} MWEBV: {3:5.2f}"
         tmp += " PIXSIZE: {4:5.3f}"
         s += tmp.format(ra, dec, nobs, mwebv, pixsize)
@@ -199,7 +199,7 @@ class SIMLIB_writer:
         lib = "\n".join(
             self.lib_dataline(
                 obsdf["MJD"].values,
-                obsdf["IDEXPT"].values,
+                obsdf["IDEXPT"].astype('int').values,
                 obsdf["FLT"].values,
                 obsdf["CCDGAIN"].values,
                 obsdf["CCDNOISE"].values,
@@ -228,7 +228,7 @@ class SIMLIB_writer:
         str
             The string of a LIB entry footer
         """
-        footer = "END_LIBID: {0:10d}".format(LIBID)
+        footer = "END_LIBID: {0:10d}".format(int(LIBID))
         footer += "\n"
         return footer
 
@@ -255,7 +255,7 @@ class SIMLIB_writer:
         out_path = self._init_out_path(out_path)
 
         print(f"Writing SIMLIB in {out_path}")
-        
+
         with open(out_path, "w", buffering=buffer_size) as simlib_file:
             simlib_file.write(self.get_SIMLIB_doc(out_path))
             simlib_file.write(self.get_SIMLIB_header())
@@ -288,7 +288,7 @@ class SIMLIB_writer:
             simlib_file.write(self.get_SIMLIB_footer())
 
         print(f"SIMLIB wrote in {time.time() - tstart:.2f} sec.\n")
-        
+
         if self.survey_hosts is not None:
             tstart = time.time()
             print(
@@ -299,8 +299,8 @@ class SIMLIB_writer:
                 buffer_size=buffer_size,
             )
             print(f"HOSTLIB file wrote in {time.time() - tstart:.2f} sec.")
-            
-    def set_survey_hosts(self, host_file, matching_radius, 
+
+    def set_survey_hosts(self, host_file, matching_radius,
                          wgt_map_file=None,
                          nworkers=10,
                          host_file_kwargs={}):
@@ -318,7 +318,7 @@ class SIMLIB_writer:
             _description_, by default 10
         host_file_kwargs : dict, optional
             _description_, by default {}
-        """      
+        """
 
         hosts = self._read_host_file(host_file, wgt_map_file=wgt_map_file, **host_file_kwargs)
 
@@ -362,7 +362,7 @@ class SIMLIB_writer:
         self.survey_hosts = pd.concat(res)
         self.survey_hosts['GROUPID'] = self.simlib_libentry_headers.loc[
             self.survey_hosts['GROUPID'], 'LIBID'
-            ].values  
+            ].values
         self.survey_hosts.drop(columns=["ra", "dec"], inplace=True)
 
     def _read_host_file(
@@ -388,7 +388,7 @@ class SIMLIB_writer:
             Unit of ra_dec (radians or degrees), by default 'radians'
         wgt_map_file : str,  optional
             Path to a SNANA wgt map to apply to subsample hosts
-        add_SNMAGSHIFT : 
+        add_SNMAGSHIFT :
             A MAGSHIFT to add in HOISTLIB file
         Returns
         -------
@@ -437,19 +437,19 @@ class SIMLIB_writer:
             hostdf["DEC_GAL"] = np.degrees(hostdf["dec"])
         hostdf.attrs["file"] = host_file
         return hostdf
-    
+
     @staticmethod
-    def _lib_dataline(MJD, 
-                      IDEXPT, 
-                      FLT, 
-                      CCDGAIN, 
-                      CCDNOISE, 
-                      SKYSIG, 
-                      PSF1, 
-                      PSF2, 
-                      PSF12RATIO, 
-                      ZPTAVG, 
-                      ZPTERR, 
+    def _lib_dataline(MJD,
+                      IDEXPT,
+                      FLT,
+                      CCDGAIN,
+                      CCDNOISE,
+                      SKYSIG,
+                      PSF1,
+                      PSF2,
+                      PSF12RATIO,
+                      ZPTAVG,
+                      ZPTERR,
                       MAG):
         """Write a SIMLIB data line
 
@@ -500,7 +500,7 @@ class SIMLIB_writer:
             f"{MAG:+7.3f} "
         )
         return l
-    
+
     def get_HOSTLIB_doc(self, out_path):
         """Give docstring for HOSTLIB file.
 
@@ -508,7 +508,7 @@ class SIMLIB_writer:
         ----------
         out_path: pathlib.Path
             path of associated SIMLIB
-            
+
         Returns
         -------
         str
@@ -532,7 +532,7 @@ class SIMLIB_writer:
         ----------
         out_path: pathlib.Path
             path of associated SIMLIB
-            
+
         Returns
         -------
         str
