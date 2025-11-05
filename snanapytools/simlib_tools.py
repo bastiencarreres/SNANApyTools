@@ -1,32 +1,34 @@
 import datetime
 import time
-from pathlib import Path
-from multiprocessing import Pool
 from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
-import geopandas as gpd
-import shapely.geometry as shp_geo
 import shapely.affinity as shp_aff
-from . import utils as ut
+import shapely.geometry as shp_geo
+
 from . import tools as tls
+from . import utils as ut
 
 
 class SIMLIB_writer:
     _column_keys = {
-        'MJD',
-        'IDEXPT',
-        'FLT',
-        'GAIN',
-        'NOISE',
-        'SKYSIG',
-        'PSF1',
-        'PSF2' ,
-        'RATIO',
-        'ZPTAVG',
-        'ZPTSIG',
-        'MAG'
-        }
+        "MJD",
+        "IDEXPT",
+        "FLT",
+        "GAIN",
+        "NOISE",
+        "SKYSIG",
+        "PSF1",
+        "PSF2",
+        "RATIO",
+        "ZPTAVG",
+        "ZPTSIG",
+        "MAG",
+    }
 
     _head_keys = {
         'LIBID',
@@ -42,20 +44,26 @@ class SIMLIB_writer:
         self,
         simlib_libentry_headers,
         simlib_libentry_obs,
-        survey_name = 'NONE',
-        survey_filters= 'NONE',
+        *,
+        survey_name="NONE",
+        survey_filters="NONE",
+        psf_unit=None,
         author_name=None,
+        skysig_unit=None,
         file_suffix="",
         documentation_notes={},
+        nexpose=False,
     ):
 
         self.simlib_libentry_headers = simlib_libentry_headers
         self.simlib_libentry_obs = simlib_libentry_obs
         self.author_name = author_name
         self.survey_name = survey_name
+        self.skysig_unit = skysig_unit
+        self.psf_unit = psf_unit
         self.survey_filters = survey_filters
         self.documentation_notes = documentation_notes
-
+        self.nexpose = nexpose
         self.survey_hosts = None
 
         self.date_time = datetime.datetime.now()
@@ -135,13 +143,27 @@ class SIMLIB_writer:
         header += f"SURVEY: {self.survey_name}   FILTERS: {self.survey_filters}\n"
         header += "USER: {0:}     HOST: {1}\n".format(user, host)
         header += f"NLIBID: {len(self.simlib_libentry_headers)}\n"
+        if self.psf_unit is not None:
+            header += f"PSF_UNIT: {self.psf_unit}\n"
+        if self.skysig_unit is not None:
+            header += f"SKYSIG_UNIT: {self.skysig_unit}\n"
         header += comments + "\n"
         header += "BEGIN LIBGEN\n"
         return header
 
     @staticmethod
     def LIBheader(
-        obsdf, LIBID, ra, dec, pixsize, mwebv=0.0, groupID=None, field_label=None
+        obsdf,
+        LIBID,
+        ra,
+        dec,
+        *,
+        pixsize=None,
+        mwebv=0.0,
+        groupID=None,
+        field_label=None,
+        peakmjd=None,
+        nexpose=False,
     ):
         """Give the string of the header of a LIB entry.
 
@@ -170,15 +192,23 @@ class SIMLIB_writer:
         s = "# --------------------------------------------" + "\n"
         s += "LIBID: {0:10d}".format(int(LIBID)) + "\n"
         tmp = "RA: {0:+10.6f} DEC: {1:+10.6f}   NOBS: {2:10d} MWEBV: {3:5.2f}"
-        tmp += " PIXSIZE: {4:5.3f}"
-        s += tmp.format(ra, dec, nobs, mwebv, pixsize)
+        s += tmp.format(ra, dec, nobs, mwebv)
+        if pixsize is not None:
+            tmp += " PIXSIZE: {4:5.3f}"
         if field_label is not None:
             s += f" FIELD: {field_label}"
+        if peakmjd is not None:
+            s += f" PEAKMJD: {peakmjd:.4f}"
         if groupID is not None:
             s += f"\nHOSTLIB_GROUPID: {groupID}"
+        if nexpose:
+            IDlabel = "ID*NEXPOSE"
+        else:
+            IDlabel = "IDEXPT"
+
         s += "\n#                           CCD  CCD         PSF1 PSF2 PSF2/1" + "\n"
         s += (
-            "#     MJD      ID*NEXPOSE  FLT GAIN NOISE SKYSIG (pixels)  RATIO  ZPTAVG ZPTERR  MAG"
+            f"#     MJD      {IDlabel}  FLT GAIN NOISE SKYSIG (pixels)  RATIO  ZPTAVG ZPTERR  MAG"
             + "\n"
         )
         return s
@@ -199,7 +229,7 @@ class SIMLIB_writer:
         lib = "\n".join(
             self.lib_dataline(
                 obsdf["MJD"].values,
-                obsdf["IDEXPT"].astype('int').values,
+                obsdf["IDEXPT"].values,
                 obsdf["FLT"].values,
                 obsdf["CCDGAIN"].values,
                 obsdf["CCDNOISE"].values,
@@ -272,10 +302,25 @@ class SIMLIB_writer:
                     field_label = lib["FIELD"]
                 else:
                     field_label = None
+                if "PIXSIZE" in lib:
+                    pixsize = lib["PIXSIZE"]
+                else:
+                    pixsize = None
+                if "PEAKMJD" in lib:
+                    peakmjd = lib["PEAKMJD"]
+                else:
+                    peakmjd = None
                 simlibstr += self.LIBheader(
-                    obsdf, lib['LIBID'], lib["RA"], lib["DEC"], lib['PIXSIZE'],
-                    groupID=groupID, field_label=field_label
-                    )
+                    obsdf,
+                    lib["LIBID"],
+                    lib["RA"],
+                    lib["DEC"],
+                    pixsize=pixsize,
+                    peakmjd=peakmjd,
+                    groupID=groupID,
+                    field_label=field_label,
+                    nexpose=self.nexpose,
+                )
                 simlibstr += self.LIBdata(obsdf)
                 simlibstr += self.LIBfooter(lib['LIBID'])
 
@@ -487,7 +532,7 @@ class SIMLIB_writer:
         l = (
             "S: "
             f"{MJD:5.4f} "
-            f"{IDEXPT:10d}*2 "
+            f"{IDEXPT} "
             f"{FLT} "
             f"{CCDGAIN:5.2f} "  # CCD Gain
             f"{CCDNOISE:5.2f} "  # CCD Noise
