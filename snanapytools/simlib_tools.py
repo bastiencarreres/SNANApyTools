@@ -157,8 +157,8 @@ class SIMLIB_writer:
         LIBID,
         ra,
         dec,
+        pixsize,
         *,
-        pixsize=None,
         mwebv=0.0,
         groupID=None,
         field_label=None,
@@ -191,16 +191,14 @@ class SIMLIB_writer:
         # String formatting
         s = "# --------------------------------------------" + "\n"
         s += "LIBID: {0:10d}".format(int(LIBID)) + "\n"
-        tmp = "RA: {0:+10.6f} DEC: {1:+10.6f}   NOBS: {2:10d} MWEBV: {3:5.2f}"
-        s += tmp.format(ra, dec, nobs, mwebv)
-        if pixsize is not None:
-            tmp += " PIXSIZE: {4:5.3f}"
+        tmp = "RA: {0:+10.6f} DEC: {1:+10.6f} NOBS: {2} PIXSIZE: {3:5.3f} MWEBV: {4:5.4f}\n"
+        s += tmp.format(ra, dec, nobs, pixsize, mwebv)
         if field_label is not None:
-            s += f" FIELD: {field_label}"
+            s += f"FIELD: {field_label}\n"
         if peakmjd is not None:
-            s += f" PEAKMJD: {peakmjd:.4f}"
+            s += f"PEAKMJD: {peakmjd:.4f}\n"
         if groupID is not None:
-            s += f"\nHOSTLIB_GROUPID: {groupID}"
+            s += f"HOSTLIB_GROUPID: {groupID}\n"
         if nexpose:
             IDlabel = "ID*NEXPOSE"
         else:
@@ -302,20 +300,21 @@ class SIMLIB_writer:
                     field_label = lib["FIELD"]
                 else:
                     field_label = None
-                if "PIXSIZE" in lib:
-                    pixsize = lib["PIXSIZE"]
-                else:
-                    pixsize = None
                 if "PEAKMJD" in lib:
                     peakmjd = lib["PEAKMJD"]
                 else:
                     peakmjd = None
+                if "MWEBV" in lib:
+                    mwebv = lib["MWEBV"]
+                else:
+                    mwebv = 0.0
                 simlibstr += self.LIBheader(
                     obsdf,
                     lib["LIBID"],
                     lib["RA"],
                     lib["DEC"],
-                    pixsize=pixsize,
+                    lib["PIXSIZE"],
+                    mwebv=mwebv,
                     peakmjd=peakmjd,
                     groupID=groupID,
                     field_label=field_label,
