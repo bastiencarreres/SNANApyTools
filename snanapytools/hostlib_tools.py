@@ -70,8 +70,8 @@ class HOSTLIB_writer:
             hostf.write(self.get_HOSTLIB_doc())
             hostf.write(self.get_HOSTLIB_header())
             columns = self.host_df.columns.values
-            columns = np.insert(columns, 0, "VARNAMES: ")
-            self.host_df["VARNAMES: "] = "GAL: "
+            columns = np.insert(columns, 0, "VARNAMES:")
+            self.host_df["VARNAMES:"] = "GAL:"
             self.host_df[columns].to_csv(
-                hostf, sep=" ", index=False, quoting=csv.QUOTE_NONE, escapechar=" "
+                hostf, sep=" ", index=False, quoting=csv.QUOTE_NONE
             )
