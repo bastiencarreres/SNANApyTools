@@ -267,13 +267,59 @@ class SIMLIB_writer:
         )
         return s
 
-    def write_SIMLIB(self, out_path, write_batch_size=10, buffer_size=8192):
+    def coadd_LIBdata(self, obsdf, maxTDIF=0.4, N=1):
+        """Coadd the observations of a LIB entry.
+
+        Groups observations in the same filter that fall within maxTDIF days
+        of each other, then combines their noise/signal properties.
+
+        Parameters
+        ----------
+        obsdf : pandas.DataFrame
+            Dataframe of the LIB entry observations
+        maxTDIF : float, optional
+            Maximum MJD difference to group as a single coadd, by default 0.4
+        N : int, optional
+            Number of exposures per coadd (scaling factor), by default 1
+
+        Returns
+        -------
+        pandas.DataFrame
+            Coadded dataframe of the LIB entry observations.
+        """
+        parts_coadd = []
+        for flt, flt_df in obsdf.groupby('FLT'):
+            flt_df = flt_df.sort_values('MJD').reset_index(drop=True)
+            grouped_mjds = (flt_df['MJD'].diff().fillna(maxTDIF) >= maxTDIF).cumsum()
+
+            result = pd.DataFrame({
+                'MJD': flt_df.groupby(grouped_mjds)['MJD'].mean(),
+                'FLT': flt,
+                'IDEXPT': flt_df.groupby(grouped_mjds)['IDEXPT'].count(),
+                'CCDGAIN': flt_df.groupby(grouped_mjds)['CCDGAIN'].mean(),
+                'CCDNOISE': np.sqrt(flt_df.groupby(grouped_mjds)['CCDNOISE'].agg(lambda x: np.sum(x**2))),
+                'SKYSIG': np.sqrt(flt_df.groupby(grouped_mjds)['SKYSIG'].agg(lambda x: np.sum(x**2))),
+                'PSF1': flt_df.groupby(grouped_mjds)['PSF1'].mean(),
+                'PSF2': flt_df.groupby(grouped_mjds)['PSF2'].mean(),
+                'PSF12RATIO': flt_df.groupby(grouped_mjds)['PSF12RATIO'].mean(),
+                'ZPTAVG': 2.5 * np.log10(flt_df.groupby(grouped_mjds)['ZPTAVG'].agg(lambda x: np.sum(10**(0.4 * x)))),
+                'ZPTERR': flt_df.groupby(grouped_mjds)['ZPTERR'].mean(),
+                'MAG': flt_df.groupby(grouped_mjds)['MAG'].first(),
+            })
+            parts_coadd.append(result)
+
+        coadd_df = pd.concat(parts_coadd).reset_index(drop=True).sort_values('MJD').reset_index(drop=True)
+        return coadd_df
+
+    def write_SIMLIB(self, out_path, coadd_obs=False, coadd_maxTDIF=0.4, write_batch_size=10, buffer_size=8192):
         """write the SIMLIB (and the HOSTLIB) file(s).
 
         Parameters
         ----------
         out_path: pathlib.Path
             path of SIMLIB
+        coadd_obs : bool
+            Whether to coadd the observations before writing
         write_batch_size : int
             Number of LIBID to write at the same time
         buffer_size : int
@@ -320,7 +366,10 @@ class SIMLIB_writer:
                     field_label=field_label,
                     nexpose=self.nexpose,
                 )
+                if coadd_obs==True:
+                    obsdf = self.coadd_LIBdata(obsdf, maxTDIF=coadd_maxTDIF)
                 simlibstr += self.LIBdata(obsdf)
+
                 simlibstr += self.LIBfooter(lib['LIBID'])
 
                 if not bcount % write_batch_size:
