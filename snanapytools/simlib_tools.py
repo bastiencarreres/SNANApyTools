@@ -339,6 +339,8 @@ class SIMLIB_writer:
             simlibstr = ""
             for (i, lib) in self.simlib_libentry_headers.iterrows():
                 obsdf = pd.DataFrame(self.simlib_libentry_obs[lib['LIBID']])
+                if coadd_obs==True:
+                    obsdf = self.coadd_LIBdata(obsdf, maxTDIF=coadd_maxTDIF)
                 if self.survey_hosts is not None:
                     groupID = lib['LIBID']
                 else:
@@ -367,8 +369,7 @@ class SIMLIB_writer:
                     field_label=field_label,
                     nexpose=self.nexpose,
                 )
-                if coadd_obs==True:
-                    obsdf = self.coadd_LIBdata(obsdf, maxTDIF=coadd_maxTDIF)
+
                 simlibstr += self.LIBdata(obsdf)
 
                 simlibstr += self.LIBfooter(lib['LIBID'])
