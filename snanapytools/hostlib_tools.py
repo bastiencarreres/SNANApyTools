@@ -45,7 +45,7 @@ class HOSTLIB_writer:
             Header of HSOTLIB file
         """
         header = (
-            f"# Z_MIN={self.host_df.ZTRUE.min()} Z_MAX={self.host_df.ZTRUE.max()}\n\n"
+            f"# Z_MIN={self.host_df.ZTRUE_CMB.min()} Z_MAX={self.host_df.ZTRUE_CMB.max()}\n\n"
             "VPECERR: 0\n\n"
         )
         return header
