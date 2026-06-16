@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 from astropy.table import Table
 
-import .utils as ut
+from . import utils as ut
 
 
 def dataframecol_decoder(df):
